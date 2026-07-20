@@ -100,7 +100,7 @@ export default function FeeReceipts() {
               <div ref={receiptRef}>
                 <div className="receipt" style={{ maxWidth: 500, margin: '0 auto', border: '2px solid #00236f', padding: 24, fontFamily: 'Arial, sans-serif' }}>
                   <div style={{ textAlign: 'center', borderBottom: '2px solid #00236f', paddingBottom: 12, marginBottom: 16 }}>
-                    <h1 style={{ fontSize: 20, color: '#00236f', margin: 0 }}>MarkPro 360 - Bursar Office</h1>
+                    <h1 style={{ fontSize: 20, color: '#00236f', margin: 0 }}>MarkPro 360 Office</h1>
                     <p style={{ fontSize: 12, color: '#666', margin: '4px 0 0' }}>Fee Payment Receipt</p>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dotted #ddd' }}>

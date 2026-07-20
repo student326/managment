@@ -39,7 +39,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <div className="flex items-center gap-4">
             <img src="/mp360-logo.png" alt="MarkPro 360 Logo" className="w-16 h-16 rounded-xl object-contain shadow-md" />
             <div>
-              <h1 className="text-headline-sm text-on-surface">Bursar Office</h1>
+              <h1 className="text-headline-sm text-on-surface">MarkPro 360 Office</h1>
               <p className="text-label-md text-on-surface-variant">MarkPro 360</p>
             </div>
           </div>

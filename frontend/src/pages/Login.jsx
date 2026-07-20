@@ -55,7 +55,7 @@ export default function Login() {
         <div className="bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-elevated animate-fade-in">
           <div className="text-center mb-8">
             <img src="/mp360-logo.png" alt="MarkPro 360 Logo" className="w-24 h-24 rounded-2xl object-contain mx-auto mb-4 shadow-lg" />
-            <h1 className="text-headline-md text-on-surface">Bursar Office</h1>
+            <h1 className="text-headline-md text-on-surface">MarkPro 360 Office</h1>
             <p className="text-body-md text-on-surface-variant mt-1">MarkPro 360 - Admin Login</p>
           </div>
 

@@ -28,7 +28,7 @@ export const exportStudentsPDF = async (students, title = 'Student Records') => 
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text('MarkPro 360 - Bursar Office', pageWidth / 2, 20, { align: 'center' });
+  doc.text('MarkPro 360 Office', pageWidth / 2, 20, { align: 'center' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(12);
@@ -109,7 +109,7 @@ export const exportFeeReportPDF = async (students, title = 'Fee Report') => {
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
-  doc.text('MarkPro 360 - Bursar Office', pageWidth / 2, 20, { align: 'center' });
+  doc.text('MarkPro 360 Office', pageWidth / 2, 20, { align: 'center' });
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(12);
   doc.text(title, pageWidth / 2, 30, { align: 'center' });
