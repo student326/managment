@@ -124,11 +124,13 @@ export default function Login() {
 function getErrorMessage(code) {
   const messages = {
     'auth/user-not-found': 'No account found with this email',
+    'auth/invalid-credential': 'No account found with this email',
     'auth/wrong-password': 'Invalid password',
-    'auth/invalid-credential': 'Invalid email or password',
     'auth/invalid-email': 'Invalid email address',
     'auth/too-many-requests': 'Too many attempts. Try again later',
     'auth/user-disabled': 'This account has been disabled',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+    'auth/missing-email': 'Please enter your email address',
   };
   return messages[code] || 'An error occurred. Please try again';
 }
