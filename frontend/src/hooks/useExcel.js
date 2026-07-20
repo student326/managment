@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadWorkbook, saveExcelToStorage, getStudentsFromWorkbook, createSampleWorkbook } from '../services/excelService';
 
 export function useExcel() {
@@ -6,47 +6,58 @@ export function useExcel() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const mountedRef = useRef(true);
 
-  const refreshData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
+    if (mountedRef.current) setLoading(true);
     setError(null);
+
     try {
-      let workbook = await loadWorkbook();
-      if (!workbook) {
-        workbook = createSampleWorkbook();
+      const workbook = createSampleWorkbook();
+      const localStudents = getStudentsFromWorkbook(workbook);
+
+      if (mountedRef.current) {
+        setWb(workbook);
+        setStudents(localStudents);
+        setLoading(false);
+      }
+
+      try {
+        const remoteWb = await loadWorkbook();
+        if (remoteWb && mountedRef.current) {
+          setWb(remoteWb);
+          setStudents(getStudentsFromWorkbook(remoteWb));
+        }
+      } catch {
         saveExcelToStorage(workbook).catch(() => {});
       }
-      setWb(workbook);
-      setStudents(getStudentsFromWorkbook(workbook));
     } catch (err) {
-      console.error('Failed to load workbook:', err);
-      const fallback = createSampleWorkbook();
-      setWb(fallback);
-      setStudents(getStudentsFromWorkbook(fallback));
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error('Failed to load data:', err);
+      if (mountedRef.current) {
+        const fallback = createSampleWorkbook();
+        setWb(fallback);
+        setStudents(getStudentsFromWorkbook(fallback));
+        setError(err.message);
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    refreshData();
-  }, [refreshData]);
+    mountedRef.current = true;
+    loadData();
+    return () => { mountedRef.current = false; };
+  }, [loadData]);
 
   const saveWorkbook = useCallback(async (newWb) => {
-    setLoading(true);
+    setWb(newWb);
+    setStudents(getStudentsFromWorkbook(newWb));
     try {
       await saveExcelToStorage(newWb);
-      setWb(newWb);
-      setStudents(getStudentsFromWorkbook(newWb));
     } catch (err) {
-      console.error('Failed to save workbook:', err);
-      setWb(newWb);
-      setStudents(getStudentsFromWorkbook(newWb));
-    } finally {
-      setLoading(false);
+      console.warn('Save to storage failed, data kept locally:', err.message);
     }
   }, []);
 
-  return { wb, students, loading, error, refreshData, saveWorkbook };
+  return { wb, students, loading, error, refreshData: loadData, saveWorkbook };
 }
