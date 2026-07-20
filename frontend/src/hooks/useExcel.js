@@ -14,11 +14,15 @@ export function useExcel() {
       let workbook = await loadWorkbook();
       if (!workbook) {
         workbook = createSampleWorkbook();
-        await saveExcelToStorage(workbook);
+        saveExcelToStorage(workbook).catch(() => {});
       }
       setWb(workbook);
       setStudents(getStudentsFromWorkbook(workbook));
     } catch (err) {
+      console.error('Failed to load workbook:', err);
+      const fallback = createSampleWorkbook();
+      setWb(fallback);
+      setStudents(getStudentsFromWorkbook(fallback));
       setError(err.message);
     } finally {
       setLoading(false);
@@ -36,7 +40,9 @@ export function useExcel() {
       setWb(newWb);
       setStudents(getStudentsFromWorkbook(newWb));
     } catch (err) {
-      setError(err.message);
+      console.error('Failed to save workbook:', err);
+      setWb(newWb);
+      setStudents(getStudentsFromWorkbook(newWb));
     } finally {
       setLoading(false);
     }

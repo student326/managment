@@ -124,10 +124,15 @@ export const saveExcelToStorage = async (wb) => {
 };
 
 export const loadWorkbook = async () => {
-  const bytes = await downloadExcel();
-  if (!bytes) return null;
-  const wb = XLSX.read(bytes, { type: 'array' });
-  return wb;
+  try {
+    const bytes = await downloadExcel();
+    if (!bytes) return null;
+    const wb = XLSX.read(bytes, { type: 'array' });
+    return wb;
+  } catch (err) {
+    console.error('loadWorkbook error:', err);
+    return null;
+  }
 };
 
 export const getStudentsFromWorkbook = (wb) => {
