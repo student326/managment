@@ -47,8 +47,8 @@ export default function Students() {
     if (!wb) return;
     setDeleting(studentId);
     try {
-      deleteStudentFromWorkbook(wb, studentId);
-      await saveWorkbook(wb);
+      const { workbook: newWb } = deleteStudentFromWorkbook(wb, studentId);
+      await saveWorkbook(newWb);
     } catch (err) {
       console.error('Delete failed:', err);
     } finally {

@@ -21,105 +21,127 @@ const DEFAULT_COLUMNS = [
 
 export const getDefaultColumns = () => [...DEFAULT_COLUMNS];
 
+const SAMPLE_DATA = [
+  {
+    studentId: 'STD-001',
+    studentName: 'James Anderson',
+    fatherName: 'Robert Anderson',
+    phone: '0300-1234567',
+    email: 'james@example.com',
+    course: 'FSc Pre-Medical',
+    batch: '2024-2025',
+    admissionDate: '2024-01-15',
+    totalFee: 12000,
+    paid: 12000,
+    pending: 0,
+    status: 'Paid',
+    paymentMethod: 'Bank Transfer',
+    paymentDate: '2024-01-20',
+    remarks: '',
+  },
+  {
+    studentId: 'STD-002',
+    studentName: 'Elena Cooper',
+    fatherName: 'Michael Cooper',
+    phone: '0301-7654321',
+    email: 'elena@example.com',
+    course: 'ICS Part 1',
+    batch: '2024-2025',
+    admissionDate: '2024-02-01',
+    totalFee: 8500,
+    paid: 4250,
+    pending: 4250,
+    status: 'Partial',
+    paymentMethod: 'Cash',
+    paymentDate: '2024-02-05',
+    remarks: 'Remaining due by March',
+  },
+  {
+    studentId: 'STD-003',
+    studentName: 'Marcus Lee',
+    fatherName: 'David Lee',
+    phone: '0302-9876543',
+    email: 'marcus@example.com',
+    course: 'Grade 10',
+    batch: '2024-2025',
+    admissionDate: '2024-01-10',
+    totalFee: 9200,
+    paid: 0,
+    pending: 9200,
+    status: 'Unpaid',
+    paymentMethod: '',
+    paymentDate: '',
+    remarks: 'Pending clearance',
+  },
+  {
+    studentId: 'STD-004',
+    studentName: 'Sophia Kim',
+    fatherName: 'John Kim',
+    phone: '0303-4567890',
+    email: 'sophia@example.com',
+    course: 'FSc Pre-Medical',
+    batch: '2024-2025',
+    admissionDate: '2024-01-20',
+    totalFee: 10500,
+    paid: 10500,
+    pending: 0,
+    status: 'Paid',
+    paymentMethod: 'Scholarship',
+    paymentDate: '2024-01-25',
+    remarks: 'Merit scholarship holder',
+  },
+  {
+    studentId: 'STD-005',
+    studentName: 'Thomas Reed',
+    fatherName: 'William Reed',
+    phone: '0304-5678901',
+    email: 'thomas@example.com',
+    course: 'Grade 9',
+    batch: '2024-2025',
+    admissionDate: '2024-02-10',
+    totalFee: 15000,
+    paid: 7500,
+    pending: 7500,
+    status: 'Partial',
+    paymentMethod: 'JazzCash',
+    paymentDate: '2024-02-15',
+    remarks: 'Second installment due',
+  },
+];
+
 export const createSampleWorkbook = () => {
   const wb = XLSX.utils.book_new();
-  const sampleData = [
-    {
-      studentId: 'STD-001',
-      studentName: 'James Anderson',
-      fatherName: 'Robert Anderson',
-      phone: '0300-1234567',
-      email: 'james@example.com',
-      course: 'FSc Pre-Medical',
-      batch: '2024-2025',
-      admissionDate: '2024-01-15',
-      totalFee: 12000,
-      paid: 12000,
-      pending: 0,
-      status: 'Paid',
-      paymentMethod: 'Bank Transfer',
-      paymentDate: '2024-01-20',
-      remarks: '',
-    },
-    {
-      studentId: 'STD-002',
-      studentName: 'Elena Cooper',
-      fatherName: 'Michael Cooper',
-      phone: '0301-7654321',
-      email: 'elena@example.com',
-      course: 'ICS Part 1',
-      batch: '2024-2025',
-      admissionDate: '2024-02-01',
-      totalFee: 8500,
-      paid: 4250,
-      pending: 4250,
-      status: 'Partial',
-      paymentMethod: 'Cash',
-      paymentDate: '2024-02-05',
-      remarks: 'Remaining due by March',
-    },
-    {
-      studentId: 'STD-003',
-      studentName: 'Marcus Lee',
-      fatherName: 'David Lee',
-      phone: '0302-9876543',
-      email: 'marcus@example.com',
-      course: 'Grade 10',
-      batch: '2024-2025',
-      admissionDate: '2024-01-10',
-      totalFee: 9200,
-      paid: 0,
-      pending: 9200,
-      status: 'Unpaid',
-      paymentMethod: '',
-      paymentDate: '',
-      remarks: 'Pending clearance',
-    },
-    {
-      studentId: 'STD-004',
-      studentName: 'Sophia Kim',
-      fatherName: 'John Kim',
-      phone: '0303-4567890',
-      email: 'sophia@example.com',
-      course: 'FSc Pre-Medical',
-      batch: '2024-2025',
-      admissionDate: '2024-01-20',
-      totalFee: 10500,
-      paid: 10500,
-      pending: 0,
-      status: 'Paid',
-      paymentMethod: 'Scholarship',
-      paymentDate: '2024-01-25',
-      remarks: 'Merit scholarship holder',
-    },
-    {
-      studentId: 'STD-005',
-      studentName: 'Thomas Reed',
-      fatherName: 'William Reed',
-      phone: '0304-5678901',
-      email: 'thomas@example.com',
-      course: 'Grade 9',
-      batch: '2024-2025',
-      admissionDate: '2024-02-10',
-      totalFee: 15000,
-      paid: 7500,
-      pending: 7500,
-      status: 'Partial',
-      paymentMethod: 'JazzCash',
-      paymentDate: '2024-02-15',
-      remarks: 'Second installment due',
-    },
-  ];
-  const ws = XLSX.utils.json_to_sheet(sampleData);
+  const ws = XLSX.utils.json_to_sheet(SAMPLE_DATA);
   XLSX.utils.book_append_sheet(wb, ws, 'Students');
   return wb;
 };
 
+const cloneWorkbook = (wb) => {
+  const copy = XLSX.utils.book_new();
+  copy.SheetNames = [...wb.SheetNames];
+  for (const name of wb.SheetNames) {
+    copy.Sheets[name] = { ...wb.Sheets[name], '!ref': wb.Sheets[name]['!ref'] };
+    copy.Sheets[name]['!cols'] = wb.Sheets[name]['!cols']
+      ? [...wb.Sheets[name]['!cols']]
+      : undefined;
+  }
+  const sheetName = wb.SheetNames[0];
+  if (sheetName && wb.Sheets[sheetName]) {
+    const data = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+    copy.Sheets[sheetName] = XLSX.utils.json_to_sheet(data);
+  }
+  return copy;
+};
+
 export const saveExcelToStorage = async (wb) => {
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  const file = new File([blob], 'students_fee_record.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-  await uploadExcel(file);
+  const blob = new Blob([wbout], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const file = new File([blob], 'students_fee_record.xlsx', {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  await uploadExcel(file, wbout);
   return file;
 };
 
@@ -148,7 +170,7 @@ export const updateStudentInWorkbook = (wb, studentId, updatedData) => {
   const ws = wb.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
   const idx = data.findIndex((r) => r.studentId === studentId || r.id === studentId);
-  if (idx === -1) return false;
+  if (idx === -1) return { success: false, workbook: wb };
   data[idx] = { ...data[idx], ...updatedData };
   if (data[idx].totalFee && data[idx].paid !== undefined) {
     data[idx].pending = data[idx].totalFee - data[idx].paid;
@@ -162,8 +184,9 @@ export const updateStudentInWorkbook = (wb, studentId, updatedData) => {
     }
   }
   const newWs = XLSX.utils.json_to_sheet(data);
-  wb.Sheets[sheetName] = newWs;
-  return true;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return { success: true, workbook: newWb };
 };
 
 export const addStudentToWorkbook = (wb, studentData) => {
@@ -191,8 +214,9 @@ export const addStudentToWorkbook = (wb, studentData) => {
   }
   data.push(newStudent);
   const newWs = XLSX.utils.json_to_sheet(data);
-  wb.Sheets[sheetName] = newWs;
-  return newStudent;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return { workbook: newWb, student: newStudent };
 };
 
 export const deleteStudentFromWorkbook = (wb, studentId) => {
@@ -200,20 +224,25 @@ export const deleteStudentFromWorkbook = (wb, studentId) => {
   const ws = wb.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
   const filtered = data.filter((r) => r.studentId !== studentId && r.id !== studentId);
-  if (filtered.length === data.length) return false;
+  if (filtered.length === data.length) return { success: false, workbook: wb };
   const newWs = XLSX.utils.json_to_sheet(filtered);
-  wb.Sheets[sheetName] = newWs;
-  return true;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return { success: true, workbook: newWb };
 };
 
 export const addColumnToWorkbook = (wb, columnName, defaultValue = '') => {
   const sheetName = wb.SheetNames[0];
   const ws = wb.Sheets[sheetName];
   const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
-  const updated = data.map((row) => ({ ...row, [columnName]: row[columnName] ?? defaultValue }));
+  const updated = data.map((row) => ({
+    ...row,
+    [columnName]: row[columnName] ?? defaultValue,
+  }));
   const newWs = XLSX.utils.json_to_sheet(updated);
-  wb.Sheets[sheetName] = newWs;
-  return true;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return newWb;
 };
 
 export const removeColumnFromWorkbook = (wb, columnName) => {
@@ -225,8 +254,9 @@ export const removeColumnFromWorkbook = (wb, columnName) => {
     return rest;
   });
   const newWs = XLSX.utils.json_to_sheet(updated);
-  wb.Sheets[sheetName] = newWs;
-  return true;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return newWb;
 };
 
 export const renameColumnInWorkbook = (wb, oldName, newName) => {
@@ -238,13 +268,16 @@ export const renameColumnInWorkbook = (wb, oldName, newName) => {
     return { ...rest, [newName]: value };
   });
   const newWs = XLSX.utils.json_to_sheet(updated);
-  wb.Sheets[sheetName] = newWs;
-  return true;
+  const newWb = cloneWorkbook(wb);
+  newWb.Sheets[sheetName] = newWs;
+  return newWb;
 };
 
 export const exportWorkbook = (wb) => {
   const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const blob = new Blob([wbout], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

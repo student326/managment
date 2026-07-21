@@ -83,7 +83,7 @@ export default function AddStudent() {
     }
     setSaving(true);
     try {
-      addStudentToWorkbook(wb, {
+      const { workbook: newWb } = addStudentToWorkbook(wb, {
         studentName: sanitizeInput(form.studentName.trim()),
         fatherName: sanitizeInput(form.fatherName.trim()),
         phone: sanitizeInput(form.phone.trim()),
@@ -99,7 +99,7 @@ export default function AddStudent() {
         paymentDate: now.toISOString().split('T')[0],
         remarks: sanitizeInput(form.remarks.trim()),
       });
-      await saveWorkbook(wb);
+      await saveWorkbook(newWb);
       setSaved(true);
       setTimeout(() => {
         navigate('/students');

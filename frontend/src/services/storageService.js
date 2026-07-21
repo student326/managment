@@ -1,39 +1,15 @@
 import { ref, uploadBytes, getBytes } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import * as XLSX from 'xlsx';
 
 const EXCEL_PATH = 'excel/students_fee_record.xlsx';
-const LOCAL_CACHE_KEY = 'bursar_excel_cache_v2';
+const LOCAL_CACHE_KEY = 'bursar_excel_cache_v3';
 
-const withTimeout = (promise, ms = 10000) => {
+const withTimeout = (promise, ms = 30000) => {
   return Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms)),
   ]);
-};
-
-export const uploadExcel = async (file) => {
-  const storageRef = ref(storage, EXCEL_PATH);
-  try {
-    await withTimeout(uploadBytes(storageRef, file), 15000);
-    const arrayBuffer = await file.arrayBuffer();
-    saveLocalCache(arrayBuffer);
-  } catch (err) {
-    console.warn('Storage upload failed, saving locally:', err.message);
-    const arrayBuffer = await file.arrayBuffer();
-    saveLocalCache(arrayBuffer);
-  }
-};
-
-export const downloadExcel = async () => {
-  try {
-    const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await withTimeout(getBytes(storageRef), 10000);
-    saveLocalCache(bytes);
-    return bytes;
-  } catch (err) {
-    console.warn('Storage download failed, trying local cache:', err.message);
-    return loadLocalCache();
-  }
 };
 
 const saveLocalCache = (arrayBuffer) => {
@@ -61,6 +37,56 @@ const loadLocalCache = () => {
     return bytes.buffer;
   } catch {
     return null;
+  }
+};
+
+const saveInMemoryCache = (wb) => {
+  try {
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    saveLocalCache(wbout);
+  } catch (e) {
+    console.warn('Failed to cache workbook in memory:', e);
+  }
+};
+
+let inflightUpload = null;
+
+export const uploadExcel = async (file, rawArrayBuffer) => {
+  const storageRef = ref(storage, EXCEL_PATH);
+
+  if (inflightUpload) {
+    try {
+      await inflightUpload;
+    } catch {}
+    inflightUpload = null;
+  }
+
+  const uploadPromise = (async () => {
+    try {
+      await withTimeout(uploadBytes(storageRef, file), 30000);
+      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
+      console.log('[Storage] Upload succeeded');
+    } catch (err) {
+      console.warn('[Storage] Upload failed, saving locally:', err.message);
+      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
+    } finally {
+      inflightUpload = null;
+    }
+  })();
+
+  inflightUpload = uploadPromise;
+  return uploadPromise;
+};
+
+export const downloadExcel = async () => {
+  try {
+    const storageRef = ref(storage, EXCEL_PATH);
+    const bytes = await withTimeout(getBytes(storageRef), 30000);
+    saveLocalCache(bytes);
+    return bytes;
+  } catch (err) {
+    console.warn('[Storage] Download failed, trying local cache:', err.message);
+    return loadLocalCache();
   }
 };
 

@@ -54,8 +54,8 @@ export default function Settings() {
     setColumnError('');
     setSaving(true);
     try {
-      addColumnToWorkbook(wb, sanitizeInput(newColName.trim()));
-      await saveWorkbook(wb);
+      const newWb = addColumnToWorkbook(wb, sanitizeInput(newColName.trim()));
+      await saveWorkbook(newWb);
       setNewColName('');
       setAddModal(false);
     } catch (err) {
@@ -71,8 +71,8 @@ export default function Settings() {
     if (!nameResult.valid) return;
     setSaving(true);
     try {
-      renameColumnInWorkbook(wb, renameModal, sanitizeInput(renameValue.trim()));
-      await saveWorkbook(wb);
+      const newWb = renameColumnInWorkbook(wb, renameModal, sanitizeInput(renameValue.trim()));
+      await saveWorkbook(newWb);
       setRenameModal(null);
       setRenameValue('');
     } catch (err) {
@@ -86,8 +86,8 @@ export default function Settings() {
     if (!wb || !window.confirm(`Are you sure you want to remove "${colName}"? This will delete all data in this column.`)) return;
     setSaving(true);
     try {
-      removeColumnFromWorkbook(wb, colName);
-      await saveWorkbook(wb);
+      const newWb = removeColumnFromWorkbook(wb, colName);
+      await saveWorkbook(newWb);
     } catch (err) {
       console.error('Remove column failed:', err);
     } finally {

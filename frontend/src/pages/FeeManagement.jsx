@@ -38,7 +38,7 @@ export default function FeeManagement() {
     try {
       const currentPaid = parseFloat(student.paid) || 0;
       const newPaid = currentPaid + parseFloat(payment.amount);
-      updateStudentInWorkbook(wb, student.studentId, {
+      const { workbook: newWb } = updateStudentInWorkbook(wb, student.studentId, {
         paid: newPaid,
         paymentMethod: payment.method,
         paymentDate: payment.date,
@@ -48,7 +48,7 @@ export default function FeeManagement() {
         action: 'payment',
         amount: payment.amount,
       });
-      await saveWorkbook(wb);
+      await saveWorkbook(newWb);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
       setPayment({ amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0] });

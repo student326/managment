@@ -95,7 +95,7 @@ export default function EditStudent() {
     }
     setSaving(true);
     try {
-      updateStudentInWorkbook(wb, student.studentId, {
+      const { workbook: newWb } = updateStudentInWorkbook(wb, student.studentId, {
         studentName: sanitizeInput(form.studentName.trim()),
         fatherName: sanitizeInput(form.fatherName.trim()),
         phone: sanitizeInput(form.phone.trim()),
@@ -110,7 +110,7 @@ export default function EditStudent() {
         paymentDate: form.paymentDate,
         remarks: sanitizeInput(form.remarks.trim()),
       });
-      await saveWorkbook(wb);
+      await saveWorkbook(newWb);
       setSaved(true);
       setTimeout(() => navigate('/students'), 1000);
     } catch (err) {
