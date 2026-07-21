@@ -12,6 +12,7 @@ export default function EditStudent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [formErrors, setFormErrors] = useState({});
+  const [saveError, setSaveError] = useState('');
   const student = useMemo(() => students.find((s) => s.studentId === studentId), [students, studentId]);
 
   const [form, setForm] = useState({
@@ -94,6 +95,7 @@ export default function EditStudent() {
       return;
     }
     setSaving(true);
+    setSaveError('');
     try {
       const { workbook: newWb } = updateStudentInWorkbook(wb, student.studentId, {
         studentName: sanitizeInput(form.studentName.trim()),
@@ -115,6 +117,7 @@ export default function EditStudent() {
       setTimeout(() => navigate('/students'), 1000);
     } catch (err) {
       console.error('Update failed:', err);
+      setSaveError('Failed to save changes to cloud. Please check your connection and try again.');
     } finally {
       setSaving(false);
     }
@@ -229,6 +232,13 @@ export default function EditStudent() {
             <label className="block text-label-md text-on-surface-variant mb-1.5">Remarks</label>
             <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} maxLength={500} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
           </div>
+
+          {saveError && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
+              <span className="material-symbols-outlined text-lg">error</span>
+              {saveError}
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" onClick={() => navigate('/students')} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>

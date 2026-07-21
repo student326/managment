@@ -11,6 +11,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState(1);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState('');
   const [showSyncModal, setShowSyncModal] = useState(false);
   const pageSize = 5;
 
@@ -35,16 +36,20 @@ export default function Dashboard() {
   const handleSync = async () => {
     setShowSyncModal(true);
     setSyncing(true);
+    setSyncError('');
     try {
       if (wb) {
         await saveWorkbook(wb);
       }
     } catch (err) {
       console.error('Sync failed:', err);
+      setSyncError('Failed to sync. Please check your connection.');
     }
     setTimeout(() => {
       setSyncing(false);
-      setTimeout(() => setShowSyncModal(false), 800);
+      if (!syncError) {
+        setTimeout(() => setShowSyncModal(false), 800);
+      }
     }, 2000);
   };
 

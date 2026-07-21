@@ -14,6 +14,7 @@ export default function FeeManagement() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [paymentError, setPaymentError] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0] });
 
   const student = useMemo(() => students.find((s) => s.studentId === studentId), [students, studentId]);
@@ -35,6 +36,7 @@ export default function FeeManagement() {
     }
 
     setSaving(true);
+    setSaveError('');
     try {
       const currentPaid = parseFloat(student.paid) || 0;
       const newPaid = currentPaid + parseFloat(payment.amount);
@@ -54,6 +56,7 @@ export default function FeeManagement() {
       setPayment({ amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0] });
     } catch (err) {
       console.error('Payment failed:', err);
+      setSaveError('Failed to save payment to cloud. Please check your connection and try again.');
     } finally {
       setSaving(false);
     }
@@ -196,6 +199,12 @@ export default function FeeManagement() {
                   <span className="material-symbols-outlined text-lg">check_circle</span>
                   Payment recorded successfully
                 </p>
+              )}
+              {saveError && (
+                <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg">error</span>
+                  {saveError}
+                </div>
               )}
             </div>
           </div>

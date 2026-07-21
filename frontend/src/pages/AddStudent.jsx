@@ -13,6 +13,7 @@ export default function AddStudent() {
   const [saved, setSaved] = useState(false);
   const [now, setNow] = useState(new Date());
   const [formErrors, setFormErrors] = useState({});
+  const [saveError, setSaveError] = useState('');
   const [form, setForm] = useState({
     studentName: '',
     fatherName: '',
@@ -82,6 +83,7 @@ export default function AddStudent() {
       return;
     }
     setSaving(true);
+    setSaveError('');
     try {
       const { workbook: newWb } = addStudentToWorkbook(wb, {
         studentName: sanitizeInput(form.studentName.trim()),
@@ -106,6 +108,7 @@ export default function AddStudent() {
       }, 1500);
     } catch (err) {
       console.error('Failed to add student:', err);
+      setSaveError('Failed to save student to cloud. Please check your connection and try again.');
     } finally {
       setSaving(false);
     }
@@ -343,6 +346,12 @@ export default function AddStudent() {
               className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none ${formErrors.remarks ? 'border-error' : 'border-outline-variant'}`}
             />
             {formErrors.remarks && <p className="text-error text-label-md mt-1">{formErrors.remarks}</p>}
+            {saveError && (
+              <div className="mt-4 p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg">error</span>
+                {saveError}
+              </div>
+            )}
             <button
               type="submit"
               disabled={saving || !form.studentName || !form.fatherName || !form.phone}

@@ -27,6 +27,7 @@ export default function Settings() {
   const [newColName, setNewColName] = useState('');
   const [renameValue, setRenameValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [generalSettings, setGeneralSettings] = useState(() => loadSettings());
   const [savedGeneral, setSavedGeneral] = useState(false);
 
@@ -53,6 +54,7 @@ export default function Settings() {
     }
     setColumnError('');
     setSaving(true);
+    setSaveError('');
     try {
       const newWb = addColumnToWorkbook(wb, sanitizeInput(newColName.trim()));
       await saveWorkbook(newWb);
@@ -60,6 +62,7 @@ export default function Settings() {
       setAddModal(false);
     } catch (err) {
       console.error('Add column failed:', err);
+      setSaveError('Failed to save column change. Check your connection.');
     } finally {
       setSaving(false);
     }
@@ -70,6 +73,7 @@ export default function Settings() {
     const nameResult = validateInput(renameValue.trim(), 'name', { required: true, minLength: 1, maxLength: 50 });
     if (!nameResult.valid) return;
     setSaving(true);
+    setSaveError('');
     try {
       const newWb = renameColumnInWorkbook(wb, renameModal, sanitizeInput(renameValue.trim()));
       await saveWorkbook(newWb);
@@ -77,6 +81,7 @@ export default function Settings() {
       setRenameValue('');
     } catch (err) {
       console.error('Rename failed:', err);
+      setSaveError('Failed to save column rename. Check your connection.');
     } finally {
       setSaving(false);
     }
@@ -85,11 +90,13 @@ export default function Settings() {
   const handleRemoveColumn = async (colName) => {
     if (!wb || !window.confirm(`Are you sure you want to remove "${colName}"? This will delete all data in this column.`)) return;
     setSaving(true);
+    setSaveError('');
     try {
       const newWb = removeColumnFromWorkbook(wb, colName);
       await saveWorkbook(newWb);
     } catch (err) {
       console.error('Remove column failed:', err);
+      setSaveError('Failed to remove column. Check your connection.');
     } finally {
       setSaving(false);
     }

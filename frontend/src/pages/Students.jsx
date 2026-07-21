@@ -14,6 +14,7 @@ export default function Students() {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [deleting, setDeleting] = useState(null);
+  const [actionError, setActionError] = useState('');
   const pageSize = 10;
 
   const filtered = useMemo(() => {
@@ -46,11 +47,13 @@ export default function Students() {
     if (!window.confirm(`Delete student record ${studentId}? This action cannot be undone.`)) return;
     if (!wb) return;
     setDeleting(studentId);
+    setActionError('');
     try {
       const { workbook: newWb } = deleteStudentFromWorkbook(wb, studentId);
       await saveWorkbook(newWb);
     } catch (err) {
       console.error('Delete failed:', err);
+      setActionError('Failed to delete student. Please check your connection and try again.');
     } finally {
       setDeleting(null);
     }
@@ -119,6 +122,14 @@ export default function Students() {
           Add Student
         </button>
       </div>
+
+      {actionError && (
+        <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
+          <span className="material-symbols-outlined text-lg">error</span>
+          {actionError}
+          <button onClick={() => setActionError('')} className="ml-auto"><span className="material-symbols-outlined text-lg">close</span></button>
+        </div>
+      )}
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
         <div className="relative w-full sm:w-auto">

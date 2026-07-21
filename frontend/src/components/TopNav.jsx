@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useExcel } from '../hooks/useExcel';
 
 export default function TopNav({ title, searchPlaceholder, onSearch, onToggleSidebar }) {
   const { user } = useAuth();
+  const { lastSyncTime, syncing, error, refreshData } = useExcel();
   const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState('');
 
@@ -33,6 +35,21 @@ export default function TopNav({ title, searchPlaceholder, onSearch, onToggleSid
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full text-label-md" title={error ? error : lastSyncTime ? `Last synced: ${lastSyncTime.toLocaleTimeString()}` : 'Not yet synced'}>
+            {syncing ? (
+              <span className="material-symbols-outlined text-sm text-primary animate-spin">progress_activity</span>
+            ) : error ? (
+              <span className="material-symbols-outlined text-sm text-error">cloud_off</span>
+            ) : (
+              <span className="material-symbols-outlined text-sm text-emerald-500">cloud_done</span>
+            )}
+            <span className="hidden lg:inline text-on-surface-variant">
+              {syncing ? 'Syncing...' : error ? 'Sync error' : lastSyncTime ? lastSyncTime.toLocaleTimeString() : ''}
+            </span>
+          </div>
+          <button onClick={refreshData} className="p-2 text-on-surface-variant hover:text-on-surface rounded-lg hover:bg-surface-container-high transition-colors" title="Refresh data">
+            <span className="material-symbols-outlined text-lg">refresh</span>
+          </button>
           {searchPlaceholder !== false && (
             <div className="relative hidden sm:block">
               <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>

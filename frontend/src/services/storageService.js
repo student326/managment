@@ -4,13 +4,17 @@ import * as XLSX from 'xlsx';
 
 const EXCEL_PATH = 'excel/students_fee_record.xlsx';
 const LOCAL_CACHE_KEY = 'bursar_excel_cache_v3';
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
 
-const withTimeout = (promise, ms = 30000) => {
+const withTimeout = (promise, ms = 45000) => {
   return Promise.race([
     promise,
     new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms)),
   ]);
 };
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const saveLocalCache = (arrayBuffer) => {
   try {
@@ -40,15 +44,6 @@ const loadLocalCache = () => {
   }
 };
 
-const saveInMemoryCache = (wb) => {
-  try {
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    saveLocalCache(wbout);
-  } catch (e) {
-    console.warn('Failed to cache workbook in memory:', e);
-  }
-};
-
 let inflightUpload = null;
 
 export const uploadExcel = async (file, rawArrayBuffer) => {
@@ -62,16 +57,23 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
   }
 
   const uploadPromise = (async () => {
-    try {
-      await withTimeout(uploadBytes(storageRef, file), 30000);
-      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-      console.log('[Storage] Upload succeeded');
-    } catch (err) {
-      console.warn('[Storage] Upload failed, saving locally:', err.message);
-      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-    } finally {
-      inflightUpload = null;
+    let lastError = null;
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await withTimeout(uploadBytes(storageRef, file), 45000);
+        if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
+        console.log('[Storage] Upload succeeded on attempt', attempt);
+        return;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[Storage] Upload attempt ${attempt}/${MAX_RETRIES} failed:`, err.message);
+        if (attempt < MAX_RETRIES) {
+          await delay(RETRY_DELAY_MS * attempt);
+        }
+      }
     }
+    if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
+    throw new Error(`Upload failed after ${MAX_RETRIES} attempts: ${lastError?.message || 'Unknown error'}`);
   })();
 
   inflightUpload = uploadPromise;
@@ -79,15 +81,23 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
 };
 
 export const downloadExcel = async () => {
-  try {
-    const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await withTimeout(getBytes(storageRef), 30000);
-    saveLocalCache(bytes);
-    return bytes;
-  } catch (err) {
-    console.warn('[Storage] Download failed, trying local cache:', err.message);
-    return loadLocalCache();
+  let lastError = null;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const storageRef = ref(storage, EXCEL_PATH);
+      const bytes = await withTimeout(getBytes(storageRef), 45000);
+      saveLocalCache(bytes);
+      return bytes;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Storage] Download attempt ${attempt}/${MAX_RETRIES} failed:`, err.message);
+      if (attempt < MAX_RETRIES) {
+        await delay(RETRY_DELAY_MS * attempt);
+      }
+    }
   }
+  console.warn('[Storage] All download attempts failed, trying local cache');
+  return loadLocalCache();
 };
 
 export const hasLocalCache = () => {
