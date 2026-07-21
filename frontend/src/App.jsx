@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ExcelProvider } from './context/ExcelContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -28,7 +29,9 @@ export default function App() {
             path="/"
             element={
               <ProtectedRoute>
-                <Layout />
+                <ExcelProvider>
+                  <Layout />
+                </ExcelProvider>
               </ProtectedRoute>
             }
           >
