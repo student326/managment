@@ -30,7 +30,7 @@ sample_students.xlsx
 *.swp
 *.swo
 
-# Firebase
+# Debug logs
 firebase-debug.log
 ui-debug.log
 

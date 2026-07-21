@@ -5,9 +5,8 @@
     "dev": "cd frontend && npm run dev",
     "build": "cd frontend && npm run build",
     "preview": "cd frontend && npm run preview",
-    "deploy": "cd frontend && npm run build && cd .. && firebase deploy --only hosting",
-    "deploy:hosting": "cd frontend && npm run build && cd .. && firebase deploy --only hosting",
-    "deploy:storage": "firebase deploy --only storage"
+    "deploy": "cd frontend && npm run deploy",
+    "deploy:vercel": "cd frontend && vercel --prod --yes"
   },
   "dependencies": {
     "xlsx": "^0.18.5"

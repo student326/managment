@@ -132,7 +132,7 @@ export default function Dashboard() {
               <h2 className="text-headline-sm text-on-surface">Real-Time Sync</h2>
               <span className="material-symbols-outlined text-on-surface-variant">sync</span>
             </div>
-            <p className="text-body-md text-on-surface-variant">Data syncs automatically across all devices in real-time using Firestore.</p>
+            <p className="text-body-md text-on-surface-variant">Data syncs automatically across all devices in real-time using Supabase.</p>
             <div className="mt-3 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-label-md text-emerald-600 font-medium">Live</span>

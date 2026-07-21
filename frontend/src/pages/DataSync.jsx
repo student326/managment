@@ -123,7 +123,7 @@ export default function DataSync() {
                 <button onClick={() => setSelectedFile(null)} className="px-4 py-2 border border-outline-variant rounded-lg">Remove</button>
                 <button onClick={handleUpload} disabled={processing} className="px-4 py-2 bg-primary text-on-primary rounded-lg flex items-center gap-1">
                   {processing ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-lg">upload_file</span>}
-                  Import to Firestore
+                  Import to Supabase
                 </button>
               </div>
             </div>
@@ -143,7 +143,7 @@ export default function DataSync() {
 
       {students.length > 0 && (
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
-          <p className="text-body-md text-on-surface-variant">You have <strong className="text-on-surface">{students.length}</strong> student records in Firestore. Data syncs in real-time across all devices.</p>
+          <p className="text-body-md text-on-surface-variant">You have <strong className="text-on-surface">{students.length}</strong> student records in Supabase. Data syncs in real-time across all devices.</p>
         </div>
       )}
     </div>
