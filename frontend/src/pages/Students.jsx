@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
+import { deleteStudentFromWorkbook } from '../services/excelService';
 import DataTable from '../components/DataTable';
 import FilterChips from '../components/FilterChips';
 import Pagination from '../components/Pagination';
@@ -12,7 +13,7 @@ export default function Students() {
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [globalSearch] = useState('');
+  const [deleting, setDeleting] = useState(null);
   const pageSize = 10;
 
   const filtered = useMemo(() => {
@@ -20,7 +21,7 @@ export default function Students() {
     if (filter !== 'All') {
       data = data.filter((s) => s.status?.toLowerCase() === filter.toLowerCase());
     }
-    const q = (search || globalSearch).toLowerCase();
+    const q = (search).toLowerCase();
     if (q) {
       data = data.filter(
         (s) =>
@@ -32,13 +33,28 @@ export default function Students() {
       );
     }
     return data;
-  }, [students, filter, search, globalSearch]);
+  }, [students, filter, search]);
 
   const totalPages = Math.ceil(filtered.length / pageSize);
   const paginated = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage]);
+
+  const handleDelete = async (e, studentId) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete student record ${studentId}? This action cannot be undone.`)) return;
+    if (!wb) return;
+    setDeleting(studentId);
+    try {
+      deleteStudentFromWorkbook(wb, studentId);
+      await saveWorkbook(wb);
+    } catch (err) {
+      console.error('Delete failed:', err);
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const columns = [
     { key: 'name', label: 'Student' },
@@ -64,16 +80,16 @@ export default function Students() {
             <span className="material-symbols-outlined text-lg">payments</span>
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm('Delete this student record?')) {
-                // Delete functionality
-              }
-            }}
-            className="p-1 text-on-surface-variant hover:text-error transition-colors"
+            onClick={(e) => handleDelete(e, row.studentId)}
+            disabled={deleting === row.studentId}
+            className="p-1 text-on-surface-variant hover:text-error transition-colors disabled:opacity-50"
             title="Delete"
           >
-            <span className="material-symbols-outlined text-lg">delete</span>
+            {deleting === row.studentId ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <span className="material-symbols-outlined text-lg">delete</span>
+            )}
           </button>
         </>
       ),
@@ -112,6 +128,7 @@ export default function Students() {
             placeholder="Search students..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+            maxLength={100}
             className="w-full sm:w-64 pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
           />
         </div>

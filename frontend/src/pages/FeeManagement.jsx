@@ -4,6 +4,8 @@ import { useExcel } from '../hooks/useExcel';
 import { updateStudentInWorkbook } from '../services/excelService';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
+import { logSecurityEvent, SecurityEvent } from '../services/logger';
 
 export default function FeeManagement() {
   const { studentId } = useParams();
@@ -11,12 +13,27 @@ export default function FeeManagement() {
   const { wb, students, loading, saveWorkbook } = useExcel();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [payment, setPayment] = useState({ amount: '', method: 'Cash', date: new Date().toISOString().split('T')[0] });
 
   const student = useMemo(() => students.find((s) => s.studentId === studentId), [students, studentId]);
 
   const handlePay = async () => {
     if (!wb || !student || !payment.amount) return;
+    setPaymentError('');
+
+    const amountResult = validateInput(String(payment.amount), 'number', { required: true, min: 1, max: 100000000 });
+    if (!amountResult.valid) {
+      setPaymentError(amountResult.error);
+      return;
+    }
+
+    const dateResult = validateInput(payment.date, 'text', { required: true });
+    if (!dateResult.valid) {
+      setPaymentError('Invalid payment date');
+      return;
+    }
+
     setSaving(true);
     try {
       const currentPaid = parseFloat(student.paid) || 0;
@@ -25,6 +42,11 @@ export default function FeeManagement() {
         paid: newPaid,
         paymentMethod: payment.method,
         paymentDate: payment.date,
+      });
+      logSecurityEvent(SecurityEvent.DATA_MODIFIED, {
+        studentId: student.studentId,
+        action: 'payment',
+        amount: payment.amount,
       });
       await saveWorkbook(wb);
       setSaved(true);
@@ -124,6 +146,12 @@ export default function FeeManagement() {
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6">
             <h2 className="text-headline-sm text-on-surface mb-4">Record Payment</h2>
             <div className="space-y-4">
+              {paymentError && (
+                <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
+                  <span className="material-symbols-outlined text-lg">error</span>
+                  {paymentError}
+                </div>
+              )}
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Amount (PKR)</label>
                 <input
@@ -131,6 +159,8 @@ export default function FeeManagement() {
                   value={payment.amount}
                   onChange={(e) => setPayment((p) => ({ ...p, amount: e.target.value }))}
                   placeholder="Enter payment amount"
+                  min="1"
+                  max="100000000"
                   className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
                 />
               </div>

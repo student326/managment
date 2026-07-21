@@ -3,6 +3,7 @@ import { useExcel } from '../hooks/useExcel';
 import { getTransactions, addTransaction, deleteTransaction } from '../services/financialService';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function TransactionLog() {
   const { students, loading } = useExcel();
@@ -10,6 +11,7 @@ export default function TransactionLog() {
   const [addModal, setAddModal] = useState(false);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [form, setForm] = useState({ studentId: '', type: 'Fee Payment', amount: '', method: 'Cash', description: '', date: new Date().toISOString().split('T')[0] });
 
   const filtered = useMemo(() => {
@@ -23,11 +25,28 @@ export default function TransactionLog() {
   }, [txList, filter, search]);
 
   const handleAdd = () => {
-    if (!form.amount || parseFloat(form.amount) <= 0) return;
+    const errors = {};
+    const amountResult = validateInput(String(form.amount), 'number', { required: true, min: 1, max: 100000000 });
+    if (!amountResult.valid) errors.amount = amountResult.error;
+    if (form.description) {
+      const descResult = validateInput(form.description, 'text', { maxLength: 500 });
+      if (!descResult.valid) errors.description = descResult.error;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
     const student = students.find((s) => s.studentId === form.studentId);
-    const tx = addTransaction({ ...form, studentName: student?.studentName || 'N/A', amount: parseFloat(form.amount) });
+    const tx = addTransaction({
+      ...form,
+      studentId: sanitizeInput(form.studentId),
+      studentName: sanitizeInput(student?.studentName || 'N/A'),
+      description: sanitizeInput(form.description.trim()),
+      amount: parseFloat(form.amount),
+    });
     setTxList(getTransactions());
     setAddModal(false);
+    setFormErrors({});
     setForm({ studentId: '', type: 'Fee Payment', amount: '', method: 'Cash', description: '', date: new Date().toISOString().split('T')[0] });
   };
 
@@ -89,7 +108,7 @@ export default function TransactionLog() {
             <h2 className="text-headline-sm text-on-surface">All Transactions</h2>
             <div className="relative w-full sm:w-64">
               <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">search</span>
-              <input type="search" placeholder="Search transactions..." value={search} onChange={(e) => setSearch(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
+              <input type="search" placeholder="Search transactions..." value={search} onChange={(e) => setSearch(e.target.value)} maxLength={100} className="w-full pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all" />
             </div>
           </div>
         </div>
@@ -101,7 +120,6 @@ export default function TransactionLog() {
           </div>
         ) : (
           <>
-            {/* Desktop table */}
             <div className="overflow-x-auto hidden md:block">
               <table className="w-full">
                 <thead>
@@ -144,7 +162,6 @@ export default function TransactionLog() {
               </table>
             </div>
 
-            {/* Mobile card view */}
             <div className="md:hidden divide-y divide-outline-variant">
               {filtered.map((tx) => (
                 <div key={tx.id} className="p-4 space-y-2 hover:bg-surface-container-low transition-colors">
@@ -173,8 +190,13 @@ export default function TransactionLog() {
         )}
       </div>
 
-      <Modal open={addModal} onClose={() => setAddModal(false)} title="New Transaction">
+      <Modal open={addModal} onClose={() => { setAddModal(false); setFormErrors({}); }} title="New Transaction">
         <div className="space-y-4">
+          {Object.keys(formErrors).length > 0 && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md">
+              {Object.values(formErrors).map((err, i) => <p key={i}>{err}</p>)}
+            </div>
+          )}
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Student</label>
             <select value={form.studentId} onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors">
@@ -191,7 +213,7 @@ export default function TransactionLog() {
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Amount (PKR)</label>
-              <input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input type="number" value={form.amount} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="0" min="1" max="100000000" className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.amount ? 'border-error' : 'border-outline-variant'}`} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -208,10 +230,10 @@ export default function TransactionLog() {
           </div>
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Description</label>
-            <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Payment for..." rows={3} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
+            <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Payment for..." rows={3} maxLength={500} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none ${formErrors.description ? 'border-error' : 'border-outline-variant'}`} />
           </div>
           <div className="flex items-center justify-end gap-3">
-            <button onClick={() => setAddModal(false)} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
+            <button onClick={() => { setAddModal(false); setFormErrors({}); }} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
             <button onClick={handleAdd} disabled={!form.amount || parseFloat(form.amount) <= 0} className="px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:brightness-110 transition-all shadow-md active:scale-95 disabled:opacity-50">Add Transaction</button>
           </div>
         </div>

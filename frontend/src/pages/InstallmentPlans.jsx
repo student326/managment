@@ -3,6 +3,7 @@ import { useExcel } from '../hooks/useExcel';
 import { getInstallments, addInstallment, updateInstallment, deleteInstallment } from '../services/financialService';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function InstallmentPlans() {
   const { students, loading } = useExcel();
@@ -25,15 +26,28 @@ export default function InstallmentPlans() {
     return data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [plans, search]);
 
+  const [formErrors, setFormErrors] = useState({});
+
   const handleAdd = () => {
-    if (!form.studentId || !form.totalAmount) return;
+    const errors = {};
+    const studentResult = validateInput(form.studentId, 'text', { required: true });
+    if (!studentResult.valid) errors.studentId = 'Please select a student';
+    const totalResult = validateInput(String(form.totalAmount), 'number', { required: true, min: 1, max: 100000000 });
+    if (!totalResult.valid) errors.totalAmount = totalResult.error;
+    if (form.notes) {
+      const notesResult = validateInput(form.notes, 'text', { maxLength: 500 });
+      if (!notesResult.valid) errors.notes = notesResult.error;
+    }
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     const student = students.find((s) => s.studentId === form.studentId);
     const total = parseFloat(form.totalAmount) || 0;
     const count = parseInt(form.installmentCount) || 1;
     const perInstallment = total / count;
     addInstallment({
       ...form,
-      studentName: student ? student.studentName : 'N/A',
+      studentId: sanitizeInput(form.studentId),
+      studentName: sanitizeInput(student ? student.studentName : 'N/A'),
+      notes: sanitizeInput(form.notes.trim()),
       totalAmount: total,
       paidAmount: parseFloat(form.paidAmount) || 0,
       installmentCount: count,
@@ -42,6 +56,7 @@ export default function InstallmentPlans() {
     });
     refresh();
     setAddModal(false);
+    setFormErrors({});
     setForm({ studentId: '', totalAmount: '', paidAmount: '0', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0], notes: '' });
   };
 
@@ -150,14 +165,20 @@ export default function InstallmentPlans() {
         )}
       </div>
 
-      <Modal open={addModal} onClose={() => setAddModal(false)} title="New Installment Plan">
+      <Modal open={addModal} onClose={() => { setAddModal(false); setFormErrors({}); }} title="New Installment Plan">
         <div className="space-y-4">
+          {Object.keys(formErrors).length > 0 && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md">
+              {Object.values(formErrors).map((err, i) => <p key={i}>{err}</p>)}
+            </div>
+          )}
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Student</label>
-            <select value={form.studentId} onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors">
+            <select value={form.studentId} onChange={(e) => setForm((f) => ({ ...f, studentId: e.target.value }))} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.studentId ? 'border-error' : 'border-outline-variant'}`}>
               <option value="">Select student</option>
               {students.map((s) => <option key={s.studentId} value={s.studentId}>{s.studentId} - {s.studentName}</option>)}
             </select>
+            {formErrors.studentId && <p className="text-error text-label-md mt-1">{formErrors.studentId}</p>}
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>

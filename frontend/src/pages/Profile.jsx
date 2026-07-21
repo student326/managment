@@ -45,7 +45,13 @@ export default function Profile() {
               <p className="text-body-md font-medium text-on-surface">Email Address</p>
               <p className="text-label-md text-on-surface-variant">{user?.email}</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge self-start sm:self-auto">Verified</span>
+            <span className={`px-3 py-1 rounded-full text-status-badge self-start sm:self-auto ${
+              user?.emailVerified
+                ? 'bg-emerald-50 text-emerald-700'
+                : 'bg-amber-50 text-amber-700'
+            }`}>
+              {user?.emailVerified ? 'Verified' : 'Not Verified'}
+            </span>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-low rounded-lg">
             <div>
@@ -55,6 +61,13 @@ export default function Profile() {
             <button onClick={handleReset} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">
               {resetSent ? 'Email Sent' : 'Reset Password'}
             </button>
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-low rounded-lg">
+            <div>
+              <p className="text-body-md font-medium text-on-surface">Session Status</p>
+              <p className="text-label-md text-on-surface-variant">Auto-logout after 30 minutes of inactivity</p>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge self-start sm:self-auto">Active</span>
           </div>
         </div>
         {resetSent && (

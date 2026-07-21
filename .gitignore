@@ -1,12 +1,35 @@
 node_modules/
 dist/
+build/
+
+# Environment files (NEVER commit these)
 .env
 .env.local
+.env.development
+.env.production
+.env.staging
 .env.*.local
+
+# Vercel
+.vercel/
+
+# Logs
 *.log
+npm-debug.log*
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Sample data
 sample_students.xlsx
 
-.vercel
-.env*
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Firebase
+firebase-debug.log
+ui-debug.log

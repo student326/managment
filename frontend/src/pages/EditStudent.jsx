@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
 import { updateStudentInWorkbook } from '../services/excelService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function EditStudent() {
   const { studentId } = useParams();
@@ -10,6 +11,7 @@ export default function EditStudent() {
   const { wb, students, loading, saveWorkbook } = useExcel();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
   const student = useMemo(() => students.find((s) => s.studentId === studentId), [students, studentId]);
 
   const [form, setForm] = useState({
@@ -61,27 +63,52 @@ export default function EditStudent() {
       }
       return updated;
     });
+    if (formErrors[name]) {
+      setFormErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    const nameResult = validateInput(form.studentName, 'name', { required: true, minLength: 2, maxLength: 100 });
+    if (!nameResult.valid) errors.studentName = nameResult.error;
+    const fatherResult = validateInput(form.fatherName, 'name', { required: true, minLength: 2, maxLength: 100 });
+    if (!fatherResult.valid) errors.fatherName = fatherResult.error;
+    const phoneResult = validateInput(form.phone, 'phone', { required: true });
+    if (!phoneResult.valid) errors.phone = phoneResult.error;
+    if (form.email) {
+      const emailResult = validateInput(form.email, 'email');
+      if (!emailResult.valid) errors.email = emailResult.error;
+    }
+    const totalFeeResult = validateInput(String(form.totalFee), 'number', { required: true, min: 0, max: 100000000 });
+    if (!totalFeeResult.valid) errors.totalFee = totalFeeResult.error;
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!wb || !student) return;
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
     setSaving(true);
     try {
       updateStudentInWorkbook(wb, student.studentId, {
-        studentName: form.studentName,
-        fatherName: form.fatherName,
-        phone: form.phone,
-        email: form.email,
-        course: form.course,
-        batch: form.batch,
+        studentName: sanitizeInput(form.studentName.trim()),
+        fatherName: sanitizeInput(form.fatherName.trim()),
+        phone: sanitizeInput(form.phone.trim()),
+        email: sanitizeInput(form.email.trim()),
+        course: sanitizeInput(form.course),
+        batch: sanitizeInput(form.batch.trim()),
         totalFee: parseFloat(form.totalFee) || 0,
         paid: parseFloat(form.paid) || 0,
         pending: form.pending,
         status: form.status,
         paymentMethod: form.paymentMethod,
         paymentDate: form.paymentDate,
-        remarks: form.remarks,
+        remarks: sanitizeInput(form.remarks.trim()),
       });
       await saveWorkbook(wb);
       setSaved(true);
@@ -141,19 +168,23 @@ export default function EditStudent() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Student Name</label>
-              <input name="studentName" value={form.studentName} onChange={handleChange} required className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input name="studentName" value={form.studentName} onChange={handleChange} required maxLength={100} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.studentName ? 'border-error' : 'border-outline-variant'}`} />
+              {formErrors.studentName && <p className="text-error text-label-md mt-1">{formErrors.studentName}</p>}
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Father Name</label>
-              <input name="fatherName" value={form.fatherName} onChange={handleChange} required className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input name="fatherName" value={form.fatherName} onChange={handleChange} required maxLength={100} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.fatherName ? 'border-error' : 'border-outline-variant'}`} />
+              {formErrors.fatherName && <p className="text-error text-label-md mt-1">{formErrors.fatherName}</p>}
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Phone</label>
-              <input name="phone" value={form.phone} onChange={handleChange} required className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input name="phone" value={form.phone} onChange={handleChange} required maxLength={20} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.phone ? 'border-error' : 'border-outline-variant'}`} />
+              {formErrors.phone && <p className="text-error text-label-md mt-1">{formErrors.phone}</p>}
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Email</label>
-              <input name="email" type="email" value={form.email} onChange={handleChange} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input name="email" type="email" value={form.email} onChange={handleChange} maxLength={254} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.email ? 'border-error' : 'border-outline-variant'}`} />
+              {formErrors.email && <p className="text-error text-label-md mt-1">{formErrors.email}</p>}
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Course</label>
@@ -165,7 +196,7 @@ export default function EditStudent() {
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Batch</label>
-              <input name="batch" value={form.batch} onChange={handleChange} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <input name="batch" value={form.batch} onChange={handleChange} maxLength={20} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
             </div>
           </div>
 
@@ -174,11 +205,12 @@ export default function EditStudent() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Total Fee (PKR)</label>
-                <input name="totalFee" type="number" value={form.totalFee} onChange={handleChange} required className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+                <input name="totalFee" type="number" value={form.totalFee} onChange={handleChange} required min="0" max="100000000" className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.totalFee ? 'border-error' : 'border-outline-variant'}`} />
+                {formErrors.totalFee && <p className="text-error text-label-md mt-1">{formErrors.totalFee}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Paid Amount (PKR)</label>
-                <input name="paid" type="number" value={form.paid} onChange={handleChange} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+                <input name="paid" type="number" value={form.paid} onChange={handleChange} min="0" max="100000000" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Pending Amount</label>
@@ -195,7 +227,7 @@ export default function EditStudent() {
 
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Remarks</label>
-            <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
+            <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} maxLength={500} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-2">

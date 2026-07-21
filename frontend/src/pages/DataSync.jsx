@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
 import { uploadExcel, downloadExcel } from '../services/storageService';
 import { loadWorkbook, getStudentsFromWorkbook, createSampleWorkbook, exportWorkbook, saveExcelToStorage } from '../services/excelService';
+import { validateExcelFile, sanitizeInput } from '../services/securityService';
+import { logSecurityEvent, SecurityEvent } from '../services/logger';
 import * as XLSX from 'xlsx';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -17,6 +19,8 @@ export default function DataSync() {
   const [activeTab, setActiveTab] = useState('All Changes');
   const [syncing, setSyncing] = useState(false);
 
+  const [fileError, setFileError] = useState('');
+
   const handleDragOver = (e) => {
     e.preventDefault();
     setDragOver(true);
@@ -27,15 +31,30 @@ export default function DataSync() {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
+    setFileError('');
     const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+    if (file) {
+      const validation = validateExcelFile(file);
+      if (!validation.valid) {
+        setFileError(validation.error);
+        logSecurityEvent(SecurityEvent.SUSPICIOUS_INPUT, { action: 'file_upload_rejected', reason: validation.error });
+        return;
+      }
       setSelectedFile(file);
     }
   };
 
   const handleFileSelect = (e) => {
+    setFileError('');
     const file = e.target.files[0];
-    if (file) setSelectedFile(file);
+    if (file) {
+      const validation = validateExcelFile(file);
+      if (!validation.valid) {
+        setFileError(validation.error);
+        return;
+      }
+      setSelectedFile(file);
+    }
   };
 
   const handleUpload = async () => {
@@ -239,9 +258,15 @@ export default function DataSync() {
         </div>
       ) : (
         <>
-          <div className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center transition-all ${dragOver ? 'drop-zone-active border-primary bg-blue-50/30' : 'border-outline-variant'}`}
+          <div className={`border-2 border-dashed rounded-xl p-8 sm:p-12 text-center transition-all ${dragOver ? 'drop-zone-active border-primary bg-blue-50/30' : fileError ? 'border-error' : 'border-outline-variant'}`}
             onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
           >
+            {fileError && (
+              <div className="mb-4 p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-lg">error</span>
+                {fileError}
+              </div>
+            )}
             {selectedFile ? (
               <div className="space-y-4 animate-fade-in">
                 <div className="w-16 h-16 rounded-2xl bg-primary-fixed flex items-center justify-center mx-auto">

@@ -3,6 +3,7 @@ import { useExcel } from '../hooks/useExcel';
 import { getExpenses, addExpense, updateExpense, deleteExpense } from '../services/financialService';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 const CATEGORIES = ['Salary', 'Rent', 'Utilities', 'Supplies', 'Maintenance', 'Marketing', 'Transport', 'Other'];
 
@@ -29,11 +30,28 @@ export default function ExpenseTracking() {
 
   const totalExpenses = filtered.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
+  const [formErrors, setFormErrors] = useState({});
+
   const handleAdd = () => {
-    if (!form.description || !form.amount || parseFloat(form.amount) <= 0) return;
-    addExpense({ ...form, amount: parseFloat(form.amount) });
+    const errors = {};
+    const descResult = validateInput(form.description, 'text', { required: true, maxLength: 200 });
+    if (!descResult.valid) errors.description = descResult.error;
+    const amountResult = validateInput(String(form.amount), 'number', { required: true, min: 1, max: 100000000 });
+    if (!amountResult.valid) errors.amount = amountResult.error;
+    if (form.notes) {
+      const notesResult = validateInput(form.notes, 'text', { maxLength: 500 });
+      if (!notesResult.valid) errors.notes = notesResult.error;
+    }
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
+    addExpense({
+      ...form,
+      description: sanitizeInput(form.description.trim()),
+      notes: sanitizeInput(form.notes.trim()),
+      amount: parseFloat(form.amount),
+    });
     refresh();
     setAddModal(false);
+    setFormErrors({});
     setForm({ description: '', amount: '', category: 'Salary', method: 'Cash', date: new Date().toISOString().split('T')[0], notes: '' });
   };
 
@@ -210,11 +228,17 @@ export default function ExpenseTracking() {
         )}
       </div>
 
-      <Modal open={addModal} onClose={() => setAddModal(false)} title="Add Expense">
+      <Modal open={addModal} onClose={() => { setAddModal(false); setFormErrors({}); }} title="Add Expense">
         <div className="space-y-4">
+          {Object.keys(formErrors).length > 0 && (
+            <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md">
+              {Object.values(formErrors).map((err, i) => <p key={i}>{err}</p>)}
+            </div>
+          )}
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Description</label>
-            <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="e.g., Office electricity bill" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+            <input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="e.g., Office electricity bill" maxLength={200} className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.description ? 'border-error' : 'border-outline-variant'}`} />
+            {formErrors.description && <p className="text-error text-label-md mt-1">{formErrors.description}</p>}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

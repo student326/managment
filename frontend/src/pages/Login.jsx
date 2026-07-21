@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { loginAdmin, resetPassword } from '../firebase/auth';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [retryAfter, setRetryAfter] = useState(0);
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -21,11 +23,35 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    const emailValidation = validateInput(email, 'email', { required: true });
+    if (!emailValidation.valid) {
+      setError(emailValidation.error);
+      return;
+    }
+
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
     try {
-      await loginAdmin(email, password);
+      await loginAdmin(email.trim().toLowerCase(), password);
       navigate('/dashboard');
     } catch (err) {
+      if (err.retryAfter) {
+        setRetryAfter(err.retryAfter);
+        const timer = setInterval(() => {
+          setRetryAfter((prev) => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
       setError(getErrorMessage(err.code));
     } finally {
       setLoading(false);
@@ -37,10 +63,15 @@ export default function Login() {
       setError('Please enter your email first');
       return;
     }
+    const emailValidation = validateInput(email, 'email', { required: true });
+    if (!emailValidation.valid) {
+      setError('Please enter a valid email address');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await resetPassword(email);
+      await resetPassword(email.trim().toLowerCase());
       setResetSent(true);
     } catch (err) {
       setError(getErrorMessage(err.code));
@@ -66,6 +97,12 @@ export default function Login() {
                 {error}
               </div>
             )}
+            {retryAfter > 0 && (
+              <div className="p-3 rounded-lg bg-amber-50 text-amber-700 text-body-md flex items-center gap-2">
+                <span className="material-symbols-outlined text-lg">timer</span>
+                Too many attempts. Please wait {retryAfter} seconds.
+              </div>
+            )}
             {resetSent && (
               <div className="p-3 rounded-lg bg-emerald-50 text-emerald-700 text-body-md flex items-center gap-2">
                 <span className="material-symbols-outlined text-lg">check_circle</span>
@@ -81,6 +118,8 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="admin@markpro360.com"
                 required
+                autoComplete="email"
+                maxLength={254}
                 className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
               />
             </div>
@@ -93,13 +132,15 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
+                autoComplete="current-password"
+                maxLength={128}
                 className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md text-on-surface placeholder:text-on-surface-variant focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
               />
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || retryAfter > 0}
               className="w-full py-2.5 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:brightness-110 transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? <LoadingSpinner size="sm" /> : null}
@@ -127,10 +168,11 @@ function getErrorMessage(code) {
     'auth/invalid-credential': 'No account found with this email',
     'auth/wrong-password': 'Invalid password',
     'auth/invalid-email': 'Invalid email address',
-    'auth/too-many-requests': 'Too many attempts. Try again later',
+    'auth/too-many-requests': 'Too many attempts. Please wait a moment before trying again.',
     'auth/user-disabled': 'This account has been disabled',
     'auth/network-request-failed': 'Network error. Check your connection.',
     'auth/missing-email': 'Please enter your email address',
+    'auth/operation-not-allowed': 'Email/password sign-in is not enabled for this account',
   };
   return messages[code] || 'An error occurred. Please try again';
 }

@@ -3,6 +3,7 @@ import { useExcel } from '../hooks/useExcel';
 import { addColumnToWorkbook, removeColumnFromWorkbook, renameColumnInWorkbook, getDefaultColumns } from '../services/excelService';
 import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
 
 const SETTINGS_KEY = 'bursar_settings';
 
@@ -37,11 +38,23 @@ export default function Settings() {
   const defaultColKeys = getDefaultColumns().map((c) => c.key);
   const customColumns = currentColumns.filter((k) => !defaultColKeys.includes(k));
 
+  const [columnError, setColumnError] = useState('');
+
   const handleAddColumn = async () => {
     if (!wb || !newColName.trim()) return;
+    const nameResult = validateInput(newColName.trim(), 'name', { required: true, minLength: 1, maxLength: 50 });
+    if (!nameResult.valid) {
+      setColumnError(nameResult.error);
+      return;
+    }
+    if (defaultColKeys.includes(newColName.trim().toLowerCase().replace(/\s+/g, ''))) {
+      setColumnError('This column name already exists');
+      return;
+    }
+    setColumnError('');
     setSaving(true);
     try {
-      addColumnToWorkbook(wb, newColName.trim());
+      addColumnToWorkbook(wb, sanitizeInput(newColName.trim()));
       await saveWorkbook(wb);
       setNewColName('');
       setAddModal(false);
@@ -54,9 +67,11 @@ export default function Settings() {
 
   const handleRenameColumn = async () => {
     if (!wb || !renameValue.trim() || !renameModal) return;
+    const nameResult = validateInput(renameValue.trim(), 'name', { required: true, minLength: 1, maxLength: 50 });
+    if (!nameResult.valid) return;
     setSaving(true);
     try {
-      renameColumnInWorkbook(wb, renameModal, renameValue.trim());
+      renameColumnInWorkbook(wb, renameModal, sanitizeInput(renameValue.trim()));
       await saveWorkbook(wb);
       setRenameModal(null);
       setRenameValue('');
@@ -81,7 +96,12 @@ export default function Settings() {
   };
 
   const handleSaveGeneral = () => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(generalSettings));
+    const nameResult = validateInput(generalSettings.institutionName, 'name', { required: true, maxLength: 100 });
+    if (!nameResult.valid) return;
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify({
+      ...generalSettings,
+      institutionName: sanitizeInput(generalSettings.institutionName.trim()),
+    }));
     setSavedGeneral(true);
     setTimeout(() => setSavedGeneral(false), 2000);
   };
@@ -215,9 +235,51 @@ export default function Settings() {
             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
               <div>
                 <p className="text-body-md font-medium text-on-surface">Firebase Storage Rules</p>
-                <p className="text-label-md text-on-surface-variant">Private access, authenticated only</p>
+                <p className="text-label-md text-on-surface-variant">Authenticated-only, file size limit 10MB, Excel types only</p>
               </div>
               <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Secure</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Input Validation</p>
+                <p className="text-label-md text-on-surface-variant">XSS, SQL injection, and command injection protection</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Active</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Login Rate Limiting</p>
+                <p className="text-label-md text-on-surface-variant">5 attempts per 15-minute window</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Active</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Session Timeout</p>
+                <p className="text-label-md text-on-surface-variant">Auto-logout after 30 minutes of inactivity</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Active</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Security Headers</p>
+                <p className="text-label-md text-on-surface-variant">CSP, HSTS, X-Frame-Options, X-Content-Type-Options</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Active</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Password Hashing</p>
+                <p className="text-label-md text-on-surface-variant">Firebase Authentication with bcrypt/scrypt hashing</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Secure</span>
+            </div>
+            <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
+              <div>
+                <p className="text-body-md font-medium text-on-surface">Security Logging</p>
+                <p className="text-label-md text-on-surface-variant">Auth attempts, errors, and suspicious activity tracked</p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge">Active</span>
             </div>
             <div className="flex items-center justify-between p-4 bg-surface-container-low rounded-lg">
               <div>
@@ -230,17 +292,19 @@ export default function Settings() {
         </div>
       )}
 
-      <Modal open={addModal} onClose={() => setAddModal(false)} title="Add New Column">
+      <Modal open={addModal} onClose={() => { setAddModal(false); setColumnError(''); }} title="Add New Column">
         <div className="space-y-4">
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Column Name</label>
             <input
               value={newColName}
-              onChange={(e) => setNewColName(e.target.value)}
+              onChange={(e) => { setNewColName(e.target.value); setColumnError(''); }}
               placeholder="e.g., Address, Discount, Remarks"
-              className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+              maxLength={50}
+              className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${columnError ? 'border-error' : 'border-outline-variant'}`}
               onKeyDown={(e) => e.key === 'Enter' && handleAddColumn()}
             />
+            {columnError && <p className="text-error text-label-md mt-1">{columnError}</p>}
           </div>
           <div className="flex items-center justify-end gap-3">
             <button onClick={() => setAddModal(false)} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>

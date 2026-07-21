@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
 import { addStudentToWorkbook } from '../services/excelService';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { validateInput, sanitizeInput } from '../services/securityService';
+import { logSecurityEvent, SecurityEvent } from '../services/logger';
 
 export default function AddStudent() {
   const { wb, saveWorkbook, loading: dataLoading } = useExcel();
@@ -10,6 +12,7 @@ export default function AddStudent() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [now, setNow] = useState(new Date());
+  const [formErrors, setFormErrors] = useState({});
   const [form, setForm] = useState({
     studentName: '',
     fatherName: '',
@@ -44,20 +47,49 @@ export default function AddStudent() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    if (formErrors[name]) {
+      setFormErrors((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    const nameResult = validateInput(form.studentName, 'name', { required: true, minLength: 2, maxLength: 100 });
+    if (!nameResult.valid) errors.studentName = nameResult.error;
+    const fatherResult = validateInput(form.fatherName, 'name', { required: true, minLength: 2, maxLength: 100 });
+    if (!fatherResult.valid) errors.fatherName = fatherResult.error;
+    const phoneResult = validateInput(form.phone, 'phone', { required: true });
+    if (!phoneResult.valid) errors.phone = phoneResult.error;
+    if (form.email) {
+      const emailResult = validateInput(form.email, 'email');
+      if (!emailResult.valid) errors.email = emailResult.error;
+    }
+    const totalFeeResult = validateInput(String(form.totalFee), 'number', { required: true, min: 0, max: 100000000 });
+    if (!totalFeeResult.valid) errors.totalFee = totalFeeResult.error;
+    const paidResult = validateInput(String(form.paid), 'number', { min: 0, max: 100000000 });
+    if (!paidResult.valid) errors.paid = paidResult.error;
+    const remarksResult = validateInput(form.remarks, 'text', { maxLength: 500 });
+    if (!remarksResult.valid) errors.remarks = remarksResult.error;
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!wb) return;
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
     setSaving(true);
     try {
       addStudentToWorkbook(wb, {
-        studentName: form.studentName,
-        fatherName: form.fatherName,
-        phone: form.phone,
-        email: form.email,
-        course: form.course,
-        batch: form.batch,
+        studentName: sanitizeInput(form.studentName.trim()),
+        fatherName: sanitizeInput(form.fatherName.trim()),
+        phone: sanitizeInput(form.phone.trim()),
+        email: sanitizeInput(form.email.trim()),
+        course: sanitizeInput(form.course),
+        batch: sanitizeInput(form.batch.trim()),
         admissionDate: now.toISOString().split('T')[0],
         totalFee: parseFloat(form.totalFee) || 0,
         paid: parseFloat(form.paid) || 0,
@@ -65,7 +97,7 @@ export default function AddStudent() {
         status: form.status,
         paymentMethod: form.paymentMethod,
         paymentDate: now.toISOString().split('T')[0],
-        remarks: form.remarks,
+        remarks: sanitizeInput(form.remarks.trim()),
       });
       await saveWorkbook(wb);
       setSaved(true);
@@ -122,8 +154,10 @@ export default function AddStudent() {
                   onChange={handleChange}
                   placeholder="Enter full name"
                   required
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  maxLength={100}
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.studentName ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.studentName && <p className="text-error text-label-md mt-1">{formErrors.studentName}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Father Name</label>
@@ -133,8 +167,10 @@ export default function AddStudent() {
                   onChange={handleChange}
                   placeholder="Enter father name"
                   required
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  maxLength={100}
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.fatherName ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.fatherName && <p className="text-error text-label-md mt-1">{formErrors.fatherName}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Phone Number</label>
@@ -144,8 +180,10 @@ export default function AddStudent() {
                   onChange={handleChange}
                   placeholder="03XX-XXXXXXX"
                   required
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  maxLength={20}
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.phone ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.phone && <p className="text-error text-label-md mt-1">{formErrors.phone}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Email Address</label>
@@ -155,8 +193,10 @@ export default function AddStudent() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="student@example.com"
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  maxLength={254}
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.email ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.email && <p className="text-error text-label-md mt-1">{formErrors.email}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Course/Class</label>
@@ -181,6 +221,7 @@ export default function AddStudent() {
                   value={form.batch}
                   onChange={handleChange}
                   placeholder="e.g., 2024-2025"
+                  maxLength={20}
                   className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
                 />
               </div>
@@ -215,8 +256,11 @@ export default function AddStudent() {
                   onChange={handleChange}
                   placeholder="0"
                   required
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  min="0"
+                  max="100000000"
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.totalFee ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.totalFee && <p className="text-error text-label-md mt-1">{formErrors.totalFee}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Paid Amount (PKR)</label>
@@ -226,8 +270,11 @@ export default function AddStudent() {
                   value={form.paid}
                   onChange={handleChange}
                   placeholder="0"
-                  className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
+                  min="0"
+                  max="100000000"
+                  className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors ${formErrors.paid ? 'border-error' : 'border-outline-variant'}`}
                 />
+                {formErrors.paid && <p className="text-error text-label-md mt-1">{formErrors.paid}</p>}
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Remaining Amount</label>
@@ -292,8 +339,10 @@ export default function AddStudent() {
               onChange={handleChange}
               placeholder="Any additional notes..."
               rows={6}
-              className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none"
+              maxLength={500}
+              className={`w-full px-4 py-2.5 bg-surface-bright border rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none ${formErrors.remarks ? 'border-error' : 'border-outline-variant'}`}
             />
+            {formErrors.remarks && <p className="text-error text-label-md mt-1">{formErrors.remarks}</p>}
             <button
               type="submit"
               disabled={saving || !form.studentName || !form.fatherName || !form.phone}
