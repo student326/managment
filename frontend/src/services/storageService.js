@@ -1,8 +1,7 @@
-import { ref, uploadBytes, getBytes } from 'firebase/storage';
-import { storage } from '../firebase/config';
-import * as XLSX from 'xlsx';
+import { supabase } from '../supabase/config';
 
-const EXCEL_PATH = 'excel/students_fee_record.xlsx';
+const BUCKET_NAME = 'excel';
+const FILE_PATH = 'students_fee_record.xlsx';
 const LOCAL_CACHE_KEY = 'bursar_excel_cache_v3';
 
 const saveLocalCache = (arrayBuffer) => {
@@ -36,8 +35,6 @@ export const loadLocalCache = () => {
 let inflightUpload = null;
 
 export const uploadExcel = async (file, rawArrayBuffer) => {
-  const storageRef = ref(storage, EXCEL_PATH);
-
   if (inflightUpload) {
     try { await inflightUpload; } catch {}
     inflightUpload = null;
@@ -45,12 +42,17 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
 
   const uploadPromise = (async () => {
     try {
-      await Promise.race([
-        uploadBytes(storageRef, file),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timeout')), 15000)),
-      ]);
+      const { error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .upload(FILE_PATH, file, { upsert: true });
+
+      if (error) {
+        console.warn('[Storage] Upload failed:', error.message);
+      } else {
+        console.log('[Storage] Upload OK');
+      }
+
       if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-      console.log('[Storage] Upload OK');
     } catch (err) {
       console.warn('[Storage] Upload failed, saved locally:', err.message);
       if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
@@ -70,13 +72,18 @@ export const downloadExcel = async () => {
   }
 
   try {
-    const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await Promise.race([
-      getBytes(storageRef),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 6000)),
-    ]);
-    saveLocalCache(bytes);
-    return bytes;
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .download(FILE_PATH);
+
+    if (error) {
+      console.warn('[Storage] Cloud download failed:', error.message);
+      return null;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    saveLocalCache(arrayBuffer);
+    return arrayBuffer;
   } catch (err) {
     console.warn('[Storage] Cloud download failed:', err.message);
     return null;
@@ -85,12 +92,17 @@ export const downloadExcel = async () => {
 
 const fetchFromCloud = async () => {
   try {
-    const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await Promise.race([
-      getBytes(storageRef),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000)),
-    ]);
-    saveLocalCache(bytes);
+    const { data, error } = await supabase.storage
+      .from(BUCKET_NAME)
+      .download(FILE_PATH);
+
+    if (error) {
+      console.warn('[Storage] Background sync failed:', error.message);
+      return;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    saveLocalCache(arrayBuffer);
     console.log('[Storage] Cloud sync OK');
     window.dispatchEvent(new CustomEvent('storage-synced'));
   } catch (err) {
@@ -104,9 +116,7 @@ export const hasLocalCache = () => {
 
 export const deleteExcel = async () => {
   try {
-    const storageRef = ref(storage, EXCEL_PATH);
-    const { deleteObject } = await import('firebase/storage');
-    await deleteObject(storageRef);
+    await supabase.storage.from(BUCKET_NAME).remove([FILE_PATH]);
   } catch {}
   localStorage.removeItem(LOCAL_CACHE_KEY);
 };

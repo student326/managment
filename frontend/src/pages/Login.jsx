@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginAdmin, resetPassword } from '../firebase/auth';
+import { loginAdmin, resetPassword } from '../supabase/auth';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { validateInput, sanitizeInput } from '../services/securityService';
@@ -44,15 +44,13 @@ export default function Login() {
         setRetryAfter(err.retryAfter);
         const timer = setInterval(() => {
           setRetryAfter((prev) => {
-            if (prev <= 1) {
-              clearInterval(timer);
-              return 0;
-            }
+            if (prev <= 1) { clearInterval(timer); return 0; }
             return prev - 1;
           });
         }, 1000);
       }
-      setError(getErrorMessage(err.code));
+      const raw = err.code || err.message || String(err);
+      setError(getErrorMessage(raw));
     } finally {
       setLoading(false);
     }
@@ -74,7 +72,7 @@ export default function Login() {
       await resetPassword(email.trim().toLowerCase());
       setResetSent(true);
     } catch (err) {
-      setError(getErrorMessage(err.code));
+      setError(getErrorMessage(err.code || err.message));
     } finally {
       setLoading(false);
     }
@@ -165,7 +163,7 @@ export default function Login() {
 function getErrorMessage(code) {
   const messages = {
     'auth/user-not-found': 'No account found with this email',
-    'auth/invalid-credential': 'No account found with this email',
+    'auth/invalid-credential': 'Invalid email or password',
     'auth/wrong-password': 'Invalid password',
     'auth/invalid-email': 'Invalid email address',
     'auth/too-many-requests': 'Too many attempts. Please wait a moment before trying again.',
@@ -173,6 +171,13 @@ function getErrorMessage(code) {
     'auth/network-request-failed': 'Network error. Check your connection.',
     'auth/missing-email': 'Please enter your email address',
     'auth/operation-not-allowed': 'Email/password sign-in is not enabled for this account',
+    'Invalid login credentials': 'Invalid email or password. Make sure you have created a user in Supabase Auth.',
+    'Email not confirmed': 'Please confirm your email address before signing in.',
+    'over_request_rate_limit': 'Too many requests. Please wait and try again.',
+    'AuthException: Invalid login credentials': 'Invalid email or password. Make sure you have created a user in Supabase Auth.',
   };
-  return messages[code] || 'An error occurred. Please try again';
+  const msg = messages[code];
+  if (msg) return msg;
+  if (code && code.includes('Invalid login')) return 'Invalid email or password. Make sure you have created a user in Supabase Auth.';
+  return `Error: ${code || 'An error occurred. Please try again'}`;
 }

@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { logoutAdmin } from '../firebase/auth';
+import { logoutAdmin } from '../supabase/auth';
 
 const navItems = [
   { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },

@@ -1,34 +1,23 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
-import { updateStudentInWorkbook } from '../services/excelService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function EditStudent() {
   const { studentId } = useParams();
   const navigate = useNavigate();
-  const { wb, students, loading, saveWorkbook } = useExcel();
+  const { students, loading, updateStudent } = useExcel();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const [saveError, setSaveError] = useState('');
-  const student = useMemo(() => students.find((s) => s.studentId === studentId), [students, studentId]);
+  const student = useMemo(() => students.find((s) => s.studentId === studentId || s.id === studentId), [students, studentId]);
 
   const [form, setForm] = useState({
-    studentName: '',
-    fatherName: '',
-    phone: '',
-    email: '',
-    course: '',
-    batch: '',
-    totalFee: '',
-    paid: '',
-    pending: 0,
-    status: '',
-    paymentMethod: '',
-    paymentDate: '',
-    remarks: '',
+    studentName: '', fatherName: '', phone: '', email: '',
+    course: '', batch: '', totalFee: '', paid: '',
+    pending: 0, status: '', paymentMethod: '', paymentDate: '', remarks: '',
   });
 
   useEffect(() => {
@@ -64,9 +53,7 @@ export default function EditStudent() {
       }
       return updated;
     });
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({ ...prev, [name]: null }));
-    }
+    if (formErrors[name]) setFormErrors((prev) => ({ ...prev, [name]: null }));
   };
 
   const validateForm = () => {
@@ -88,16 +75,14 @@ export default function EditStudent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!wb || !student) return;
+    if (!student) return;
     const errors = validateForm();
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
+    if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     setSaving(true);
     setSaveError('');
     try {
-      const { workbook: newWb } = updateStudentInWorkbook(wb, student.studentId, {
+      const docId = student.id || studentId;
+      await updateStudent(docId, {
         studentName: sanitizeInput(form.studentName.trim()),
         fatherName: sanitizeInput(form.fatherName.trim()),
         phone: sanitizeInput(form.phone.trim()),
@@ -112,47 +97,33 @@ export default function EditStudent() {
         paymentDate: form.paymentDate,
         remarks: sanitizeInput(form.remarks.trim()),
       });
-      await saveWorkbook(newWb);
       setSaved(true);
       setTimeout(() => navigate('/students'), 1000);
     } catch (err) {
       console.error('Update failed:', err);
-      setSaveError('Failed to save changes to cloud. Please check your connection and try again.');
+      setSaveError('Failed to save: ' + err.message);
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <LoadingSpinner size="lg" text="Loading student data..." />
+  if (loading) return <div className="flex items-center justify-center py-20"><LoadingSpinner size="lg" text="Loading student data..." /></div>;
+  if (!student) return (
+    <div className="text-center py-20">
+      <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-3">error</span>
+      <h2 className="text-headline-md text-on-surface">Student Not Found</h2>
+      <button onClick={() => navigate('/students')} className="mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg">Back to Students</button>
+    </div>
+  );
+  if (saved) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="text-center space-y-4 animate-scale-in">
+        <span className="material-symbols-outlined text-6xl text-emerald-500">check_circle</span>
+        <h2 className="text-headline-md text-on-surface">Student Updated</h2>
+        <p className="text-body-md text-on-surface-variant">Redirecting...</p>
       </div>
-    );
-  }
-
-  if (!student) {
-    return (
-      <div className="text-center py-20">
-        <span className="material-symbols-outlined text-5xl text-on-surface-variant mb-3">error</span>
-        <h2 className="text-headline-md text-on-surface">Student Not Found</h2>
-        <p className="text-body-md text-on-surface-variant mt-1">No student with ID "{studentId}" exists.</p>
-        <button onClick={() => navigate('/students')} className="mt-4 px-4 py-2 bg-primary text-on-primary rounded-lg">Back to Students</button>
-      </div>
-    );
-  }
-
-  if (saved) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center space-y-4 animate-scale-in">
-          <span className="material-symbols-outlined text-6xl text-emerald-500">check_circle</span>
-          <h2 className="text-headline-md text-on-surface">Student Updated</h2>
-          <p className="text-body-md text-on-surface-variant">Redirecting to student records...</p>
-        </div>
-      </div>
-    );
-  }
+    </div>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -161,11 +132,8 @@ export default function EditStudent() {
           <h1 className="text-headline-md text-on-surface">Edit Student</h1>
           <p className="text-body-md text-on-surface-variant mt-1">{student.studentId} - {student.studentName}</p>
         </div>
-        <button onClick={() => navigate('/students')} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors self-start sm:self-auto">
-          Back to Records
-        </button>
+        <button onClick={() => navigate('/students')} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors self-start sm:self-auto">Back to Records</button>
       </div>
-
       <form onSubmit={handleSubmit} className="max-w-3xl">
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -202,7 +170,6 @@ export default function EditStudent() {
               <input name="batch" value={form.batch} onChange={handleChange} maxLength={20} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
             </div>
           </div>
-
           <div className="border-t border-outline-variant pt-6">
             <h3 className="text-headline-sm text-on-surface mb-4">Fee Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -227,24 +194,19 @@ export default function EditStudent() {
               </select>
             </div>
           </div>
-
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Remarks</label>
             <textarea name="remarks" value={form.remarks} onChange={handleChange} rows={3} maxLength={500} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
           </div>
-
           {saveError && (
             <div className="p-3 rounded-lg bg-error-container text-on-error-container text-body-md flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">error</span>
-              {saveError}
+              <span className="material-symbols-outlined text-lg">error</span>{saveError}
             </div>
           )}
-
           <div className="flex items-center justify-end gap-3 pt-2">
             <button type="button" onClick={() => navigate('/students')} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
             <button type="submit" disabled={saving} className="px-6 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:brightness-110 transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2">
-              {saving ? <LoadingSpinner size="sm" /> : null}
-              Update Student
+              {saving ? <LoadingSpinner size="sm" /> : null}Update Student
             </button>
           </div>
         </div>

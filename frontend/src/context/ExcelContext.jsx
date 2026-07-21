@@ -1,110 +1,79 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { loadWorkbook, saveExcelToStorage, getStudentsFromWorkbook, createSampleWorkbook } from '../services/excelService';
+import {
+  subscribeToStudents,
+  addStudent as svcAddStudent,
+  updateStudent as svcUpdateStudent,
+  deleteStudent as svcDeleteStudent,
+  getNextStudentId,
+} from '../services/studentService';
 
 const ExcelContext = createContext(null);
 
 export function ExcelProvider({ children }) {
-  const [wb, setWb] = useState(null);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const mountedRef = useRef(true);
-  const loadedRef = useRef(false);
-
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent && mountedRef.current) setLoading(true);
-    if (silent && mountedRef.current) setSyncing(true);
-
-    try {
-      const remoteWb = await loadWorkbook();
-      if (remoteWb && mountedRef.current) {
-        setWb(remoteWb);
-        setStudents(getStudentsFromWorkbook(remoteWb));
-        loadedRef.current = true;
-        setLastSyncTime(new Date());
-        setError(null);
-      } else if (mountedRef.current && !loadedRef.current) {
-        const fallback = createSampleWorkbook();
-        setWb(fallback);
-        setStudents(getStudentsFromWorkbook(fallback));
-        loadedRef.current = true;
-        setError('Using sample data. Add students to get started.');
-      }
-    } catch (err) {
-      console.warn('[ExcelContext] Load failed:', err.message);
-      if (!loadedRef.current && mountedRef.current) {
-        const fallback = createSampleWorkbook();
-        setWb(fallback);
-        setStudents(getStudentsFromWorkbook(fallback));
-        loadedRef.current = true;
-      }
-    } finally {
-      if (!silent && mountedRef.current) setLoading(false);
-      if (silent && mountedRef.current) setSyncing(false);
-    }
-  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    loadData();
-    return () => { mountedRef.current = false; };
-  }, [loadData]);
+    setLoading(true);
 
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (mountedRef.current && document.visibilityState === 'visible') {
-        loadData(true);
+    const unsub = subscribeToStudents((data, err) => {
+      if (!mountedRef.current) return;
+      if (err) {
+        setError('Real-time sync failed: ' + err.message);
+        setLoading(false);
+        return;
       }
-    }, 20000);
-
-    const onVisible = () => {
-      if (document.visibilityState === 'visible' && mountedRef.current) {
-        loadData(true);
-      }
-    };
-
-    const onStorageSynced = () => {
-      if (mountedRef.current) {
-        loadData(true);
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('storage-synced', onStorageSynced);
+      setStudents(data);
+      setLastSyncTime(new Date());
+      setLoading(false);
+      setError(null);
+    });
 
     return () => {
-      clearInterval(timer);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('storage-synced', onStorageSynced);
+      mountedRef.current = false;
+      if (unsub) unsub();
     };
-  }, [loadData]);
+  }, []);
 
-  const saveWorkbook = useCallback(async (newWb) => {
-    setWb(newWb);
-    setStudents(getStudentsFromWorkbook(newWb));
+  const addStudent = useCallback(async (studentData) => {
+    const studentId = await getNextStudentId();
+    await svcAddStudent({ ...studentData, student_id: studentId });
+    return studentId;
+  }, []);
 
-    try {
-      await saveExcelToStorage(newWb);
-      setLastSyncTime(new Date());
-      return { success: true };
-    } catch (err) {
-      console.error('[ExcelContext] Save failed:', err.message);
-      setError('Cloud save failed. Data saved locally.');
-      throw err;
-    }
+  const updateStudent = useCallback(async (studentId, studentData) => {
+    await svcUpdateStudent(studentId, studentData);
+  }, []);
+
+  const deleteStudent = useCallback(async (studentId) => {
+    await svcDeleteStudent(studentId);
   }, []);
 
   const refreshData = useCallback(() => {
-    loadedRef.current = false;
-    return loadData();
-  }, [loadData]);
+    setSyncing(true);
+    setTimeout(() => setSyncing(false), 1000);
+  }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
   return (
-    <ExcelContext.Provider value={{ wb, students, loading, error, lastSyncTime, syncing, refreshData, saveWorkbook, clearError }}>
+    <ExcelContext.Provider value={{
+      students,
+      loading,
+      error,
+      lastSyncTime,
+      syncing,
+      addStudent,
+      updateStudent,
+      deleteStudent,
+      refreshData,
+      clearError,
+    }}>
       {children}
     </ExcelContext.Provider>
   );

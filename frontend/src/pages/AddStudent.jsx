@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
-import { addStudentToWorkbook } from '../services/excelService';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { validateInput, sanitizeInput } from '../services/securityService';
-import { logSecurityEvent, SecurityEvent } from '../services/logger';
 
 export default function AddStudent() {
-  const { wb, saveWorkbook, loading: dataLoading } = useExcel();
+  const { addStudent, loading: dataLoading } = useExcel();
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [now, setNow] = useState(new Date());
   const [formErrors, setFormErrors] = useState({});
-  const [saveError, setSaveError] = useState('');
   const [form, setForm] = useState({
     studentName: '',
     fatherName: '',
@@ -76,7 +74,6 @@ export default function AddStudent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!wb) return;
     const errors = validateForm();
     if (Object.keys(errors).length > 0) {
       setFormErrors(errors);
@@ -85,7 +82,7 @@ export default function AddStudent() {
     setSaving(true);
     setSaveError('');
     try {
-      const { workbook: newWb } = addStudentToWorkbook(wb, {
+      await addStudent({
         studentName: sanitizeInput(form.studentName.trim()),
         fatherName: sanitizeInput(form.fatherName.trim()),
         phone: sanitizeInput(form.phone.trim()),
@@ -101,14 +98,11 @@ export default function AddStudent() {
         paymentDate: now.toISOString().split('T')[0],
         remarks: sanitizeInput(form.remarks.trim()),
       });
-      await saveWorkbook(newWb);
       setSaved(true);
-      setTimeout(() => {
-        navigate('/students');
-      }, 1500);
+      setTimeout(() => navigate('/students'), 1500);
     } catch (err) {
       console.error('Failed to add student:', err);
-      setSaveError('Failed to save student to cloud. Please check your connection and try again.');
+      setSaveError('Failed to save: ' + err.message);
     } finally {
       setSaving(false);
     }

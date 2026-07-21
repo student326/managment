@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { resetPassword } from '../firebase/auth';
+import { resetPassword } from '../supabase/auth';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ export default function Profile() {
         <h2 className="text-headline-sm text-on-surface">Admin User</h2>
         <p className="text-body-md text-on-surface-variant mt-1">{user?.email}</p>
         <p className="text-label-md text-on-surface-variant mt-1">
-          Joined: {user?.metadata?.creationTime ? new Date(user.metadata.creationTime).toLocaleDateString() : 'N/A'}
+          Joined: {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
         </p>
       </div>
 
@@ -45,12 +45,8 @@ export default function Profile() {
               <p className="text-body-md font-medium text-on-surface">Email Address</p>
               <p className="text-label-md text-on-surface-variant">{user?.email}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-status-badge self-start sm:self-auto ${
-              user?.emailVerified
-                ? 'bg-emerald-50 text-emerald-700'
-                : 'bg-amber-50 text-amber-700'
-            }`}>
-              {user?.emailVerified ? 'Verified' : 'Not Verified'}
+            <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-status-badge self-start sm:self-auto">
+              Active
             </span>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-surface-container-low rounded-lg">
@@ -82,8 +78,8 @@ export default function Profile() {
         <h2 className="text-headline-sm text-on-surface mb-4">About</h2>
         <div className="space-y-2 text-body-md text-on-surface-variant">
           <p>Student Fee Management System v1.0.0</p>
-          <p>Built with React + Firebase + Tailwind CSS</p>
-          <p>Data stored securely in Excel files via Firebase Storage</p>
+          <p>Built with React + Supabase + Tailwind CSS</p>
+          <p>Data stored securely in Supabase PostgreSQL database</p>
         </div>
       </div>
     </div>

@@ -7,10 +7,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && cd .. && firebase deploy --only hosting"
+    "deploy": "npm run build && vercel --prod --yes"
   },
   "dependencies": {
-    "firebase": "^10.12.0",
+    "@supabase/supabase-js": "^2.49.4",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "react": "^18.3.1",

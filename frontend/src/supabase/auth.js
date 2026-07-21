@@ -1,12 +1,4 @@
-import {
-  signInWithEmailAndPassword,
-  signOut,
-  sendPasswordResetEmail,
-  onAuthStateChanged,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-} from 'firebase/auth';
-import { auth } from './config';
+import { supabase } from './config';
 import { logSecurityEvent, SecurityEvent } from '../services/logger';
 import { checkRateLimit, resetRateLimit } from '../services/securityService';
 
@@ -26,50 +18,39 @@ export const loginAdmin = async (email, password) => {
 
   logSecurityEvent(SecurityEvent.LOGIN_ATTEMPT, { email });
 
-  try {
-    const result = await signInWithEmailAndPassword(auth, email, password);
-    resetRateLimit('login');
-    logSecurityEvent(SecurityEvent.LOGIN_SUCCESS, { uid: result.user.uid });
-    return result.user;
-  } catch (err) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
     logSecurityEvent(SecurityEvent.LOGIN_FAILURE, {
       email,
-      code: err.code,
+      code: error.code,
       attempts: LOGIN_RATE_LIMIT - rateCheck.remaining,
     });
-    throw err;
+    throw error;
   }
+
+  resetRateLimit('login');
+  logSecurityEvent(SecurityEvent.LOGIN_SUCCESS, { uid: data.user.id });
+  return data.user;
 };
 
 export const logoutAdmin = async () => {
   logSecurityEvent(SecurityEvent.LOGOUT);
-  await signOut(auth);
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
 };
 
 export const resetPassword = async (email) => {
   logSecurityEvent(SecurityEvent.PASSWORD_RESET, { email });
-  const actionCodeSettings = {
-    url: window.location.origin + '/login',
-    handleCodeInApp: false,
-  };
-  await sendPasswordResetEmail(auth, email, actionCodeSettings);
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/login',
+  });
+  if (error) throw error;
 };
 
 export const onAuthChange = (callback) => {
-  return onAuthStateChanged(auth, callback);
-};
-
-export const checkEmailVerified = () => {
-  const user = auth.currentUser;
-  if (!user) return false;
-  return user.emailVerified === true;
-};
-
-export const refreshUser = async () => {
-  const user = auth.currentUser;
-  if (user) {
-    await user.reload();
-    return user;
-  }
-  return null;
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session?.user ?? null);
+  });
+  return () => subscription.unsubscribe();
 };
