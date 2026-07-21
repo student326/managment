@@ -5,10 +5,10 @@ import * as XLSX from 'xlsx';
 const EXCEL_PATH = 'excel/students_fee_record.xlsx';
 const LOCAL_CACHE_KEY = 'bursar_excel_cache_v3';
 
-const withTimeout = (promise, ms = 15000) => {
+const withTimeout = (promise, ms = 8000) => {
   return Promise.race([
     promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timed out')), ms)),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out')), ms)),
   ]);
 };
 
@@ -21,7 +21,7 @@ const saveLocalCache = (arrayBuffer) => {
     }
     localStorage.setItem(LOCAL_CACHE_KEY, btoa(binary));
   } catch (e) {
-    console.warn('Failed to cache locally:', e);
+    console.warn('Cache save failed:', e);
   }
 };
 
@@ -51,24 +51,19 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
   }
 
   const uploadPromise = (async () => {
-    const MAX_UPLOAD_RETRIES = 3;
-    let lastError = null;
-    for (let attempt = 1; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        await withTimeout(uploadBytes(storageRef, file), 20000);
+        await withTimeout(uploadBytes(storageRef, file), 15000);
         if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-        console.log('[Storage] Upload succeeded on attempt', attempt);
+        console.log('[Storage] Upload OK');
         return;
       } catch (err) {
-        lastError = err;
-        console.warn(`[Storage] Upload attempt ${attempt}/${MAX_UPLOAD_RETRIES} failed:`, err.message);
-        if (attempt < MAX_UPLOAD_RETRIES) {
-          await new Promise((r) => setTimeout(r, 1000 * attempt));
-        }
+        console.warn(`[Storage] Upload attempt ${attempt} failed:`, err.message);
+        if (attempt < 3) await new Promise((r) => setTimeout(r, 1000 * attempt));
       }
     }
     if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-    throw new Error(`Upload failed: ${lastError?.message || 'Unknown error'}`);
+    throw new Error('Upload failed - saved locally only');
   })();
 
   inflightUpload = uploadPromise;
@@ -78,11 +73,11 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
 export const downloadExcel = async () => {
   try {
     const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await withTimeout(getBytes(storageRef), 15000);
+    const bytes = await withTimeout(getBytes(storageRef), 8000);
     saveLocalCache(bytes);
     return bytes;
   } catch (err) {
-    console.warn('[Storage] Download failed:', err.message);
+    console.warn('[Storage] Download failed, using cache:', err.message);
     return loadLocalCache();
   }
 };

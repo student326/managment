@@ -3,7 +3,7 @@ import { loadWorkbook, saveExcelToStorage, getStudentsFromWorkbook, createSample
 
 const ExcelContext = createContext(null);
 
-const AUTO_REFRESH_INTERVAL = 15000;
+const AUTO_REFRESH_INTERVAL = 20000;
 
 export function ExcelProvider({ children }) {
   const [wb, setWb] = useState(null);
@@ -16,10 +16,9 @@ export function ExcelProvider({ children }) {
   const loadedRef = useRef(false);
   const refreshTimerRef = useRef(null);
 
-  const loadRemoteData = useCallback(async (silent = false) => {
+  const loadData = useCallback(async (silent = false) => {
     if (!silent && mountedRef.current) setLoading(true);
-    if (silent) setSyncing(true);
-    setError(null);
+    if (silent && mountedRef.current) setSyncing(true);
 
     try {
       const remoteWb = await loadWorkbook();
@@ -28,53 +27,56 @@ export function ExcelProvider({ children }) {
         setStudents(getStudentsFromWorkbook(remoteWb));
         loadedRef.current = true;
         setLastSyncTime(new Date());
-      } else if (!loadedRef.current && mountedRef.current) {
-        const fallback = createSampleWorkbook();
-        setWb(fallback);
-        setStudents(getStudentsFromWorkbook(fallback));
-        loadedRef.current = true;
-        setError('Could not connect to cloud. Showing sample data.');
+        setError(null);
+      } else if (mountedRef.current) {
+        if (!loadedRef.current) {
+          const fallback = createSampleWorkbook();
+          setWb(fallback);
+          setStudents(getStudentsFromWorkbook(fallback));
+          loadedRef.current = true;
+          setError('Cloud unavailable. Using local data.');
+        }
       }
     } catch (err) {
-      console.warn('[ExcelContext] Remote load failed:', err.message);
+      console.warn('[ExcelContext] Load failed:', err.message);
       if (!loadedRef.current && mountedRef.current) {
         const fallback = createSampleWorkbook();
         setWb(fallback);
         setStudents(getStudentsFromWorkbook(fallback));
         loadedRef.current = true;
       }
-      if (!silent) setError('Failed to load data from cloud.');
+      if (!silent) setError('Could not connect to cloud.');
     } finally {
       if (!silent && mountedRef.current) setLoading(false);
-      if (silent) setSyncing(false);
+      if (silent && mountedRef.current) setSyncing(false);
     }
   }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    loadRemoteData();
+    loadData();
     return () => { mountedRef.current = false; };
-  }, [loadRemoteData]);
+  }, [loadData]);
 
   useEffect(() => {
     refreshTimerRef.current = setInterval(() => {
       if (mountedRef.current && document.visibilityState === 'visible') {
-        loadRemoteData(true);
+        loadData(true);
       }
     }, AUTO_REFRESH_INTERVAL);
 
-    const handleVisibility = () => {
+    const onVisible = () => {
       if (document.visibilityState === 'visible' && mountedRef.current) {
-        loadRemoteData(true);
+        loadData(true);
       }
     };
-    document.addEventListener('visibilitychange', handleVisibility);
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       clearInterval(refreshTimerRef.current);
-      document.removeEventListener('visibilitychange', handleVisibility);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [loadRemoteData]);
+  }, [loadData]);
 
   const saveWorkbook = useCallback(async (newWb) => {
     setWb(newWb);
@@ -86,15 +88,15 @@ export function ExcelProvider({ children }) {
       return { success: true };
     } catch (err) {
       console.error('[ExcelContext] Save failed:', err.message);
-      setError('Failed to save to cloud. Data saved locally.');
+      setError('Cloud save failed. Data saved locally.');
       throw err;
     }
   }, []);
 
   const refreshData = useCallback(() => {
     loadedRef.current = false;
-    return loadRemoteData();
-  }, [loadRemoteData]);
+    return loadData();
+  }, [loadData]);
 
   const clearError = useCallback(() => setError(null), []);
 
