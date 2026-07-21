@@ -14,7 +14,6 @@ export function ExcelProvider({ children }) {
   const [syncing, setSyncing] = useState(false);
   const mountedRef = useRef(true);
   const loadedRef = useRef(false);
-  const wbRef = useRef(null);
   const refreshTimerRef = useRef(null);
 
   const loadRemoteData = useCallback(async (silent = false) => {
@@ -26,14 +25,25 @@ export function ExcelProvider({ children }) {
       const remoteWb = await loadWorkbook();
       if (remoteWb && mountedRef.current) {
         setWb(remoteWb);
-        wbRef.current = remoteWb;
         setStudents(getStudentsFromWorkbook(remoteWb));
         loadedRef.current = true;
         setLastSyncTime(new Date());
+      } else if (!loadedRef.current && mountedRef.current) {
+        const fallback = createSampleWorkbook();
+        setWb(fallback);
+        setStudents(getStudentsFromWorkbook(fallback));
+        loadedRef.current = true;
+        setError('Could not connect to cloud. Showing sample data.');
       }
     } catch (err) {
       console.warn('[ExcelContext] Remote load failed:', err.message);
-      if (!silent) setError('Failed to load data from cloud. Showing cached data.');
+      if (!loadedRef.current && mountedRef.current) {
+        const fallback = createSampleWorkbook();
+        setWb(fallback);
+        setStudents(getStudentsFromWorkbook(fallback));
+        loadedRef.current = true;
+      }
+      if (!silent) setError('Failed to load data from cloud.');
     } finally {
       if (!silent && mountedRef.current) setLoading(false);
       if (silent) setSyncing(false);
@@ -68,7 +78,6 @@ export function ExcelProvider({ children }) {
 
   const saveWorkbook = useCallback(async (newWb) => {
     setWb(newWb);
-    wbRef.current = newWb;
     setStudents(getStudentsFromWorkbook(newWb));
 
     try {
@@ -77,11 +86,10 @@ export function ExcelProvider({ children }) {
       return { success: true };
     } catch (err) {
       console.error('[ExcelContext] Save failed:', err.message);
-      setError('Failed to save to cloud. Data saved locally only. ' + err.message);
-      await loadRemoteData(true);
+      setError('Failed to save to cloud. Data saved locally.');
       throw err;
     }
-  }, [loadRemoteData]);
+  }, []);
 
   const refreshData = useCallback(() => {
     loadedRef.current = false;
