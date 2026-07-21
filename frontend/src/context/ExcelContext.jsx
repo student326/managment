@@ -3,8 +3,6 @@ import { loadWorkbook, saveExcelToStorage, getStudentsFromWorkbook, createSample
 
 const ExcelContext = createContext(null);
 
-const AUTO_REFRESH_INTERVAL = 20000;
-
 export function ExcelProvider({ children }) {
   const [wb, setWb] = useState(null);
   const [students, setStudents] = useState([]);
@@ -14,7 +12,6 @@ export function ExcelProvider({ children }) {
   const [syncing, setSyncing] = useState(false);
   const mountedRef = useRef(true);
   const loadedRef = useRef(false);
-  const refreshTimerRef = useRef(null);
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent && mountedRef.current) setLoading(true);
@@ -28,14 +25,12 @@ export function ExcelProvider({ children }) {
         loadedRef.current = true;
         setLastSyncTime(new Date());
         setError(null);
-      } else if (mountedRef.current) {
-        if (!loadedRef.current) {
-          const fallback = createSampleWorkbook();
-          setWb(fallback);
-          setStudents(getStudentsFromWorkbook(fallback));
-          loadedRef.current = true;
-          setError('Cloud unavailable. Using local data.');
-        }
+      } else if (mountedRef.current && !loadedRef.current) {
+        const fallback = createSampleWorkbook();
+        setWb(fallback);
+        setStudents(getStudentsFromWorkbook(fallback));
+        loadedRef.current = true;
+        setError('Using sample data. Add students to get started.');
       }
     } catch (err) {
       console.warn('[ExcelContext] Load failed:', err.message);
@@ -45,7 +40,6 @@ export function ExcelProvider({ children }) {
         setStudents(getStudentsFromWorkbook(fallback));
         loadedRef.current = true;
       }
-      if (!silent) setError('Could not connect to cloud.');
     } finally {
       if (!silent && mountedRef.current) setLoading(false);
       if (silent && mountedRef.current) setSyncing(false);
@@ -59,22 +53,31 @@ export function ExcelProvider({ children }) {
   }, [loadData]);
 
   useEffect(() => {
-    refreshTimerRef.current = setInterval(() => {
+    const timer = setInterval(() => {
       if (mountedRef.current && document.visibilityState === 'visible') {
         loadData(true);
       }
-    }, AUTO_REFRESH_INTERVAL);
+    }, 20000);
 
     const onVisible = () => {
       if (document.visibilityState === 'visible' && mountedRef.current) {
         loadData(true);
       }
     };
+
+    const onStorageSynced = () => {
+      if (mountedRef.current) {
+        loadData(true);
+      }
+    };
+
     document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('storage-synced', onStorageSynced);
 
     return () => {
-      clearInterval(refreshTimerRef.current);
+      clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('storage-synced', onStorageSynced);
     };
   }, [loadData]);
 

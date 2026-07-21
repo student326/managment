@@ -5,13 +5,6 @@ import * as XLSX from 'xlsx';
 const EXCEL_PATH = 'excel/students_fee_record.xlsx';
 const LOCAL_CACHE_KEY = 'bursar_excel_cache_v3';
 
-const withTimeout = (promise, ms = 8000) => {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out')), ms)),
-  ]);
-};
-
 const saveLocalCache = (arrayBuffer) => {
   try {
     const bytes = new Uint8Array(arrayBuffer);
@@ -25,7 +18,7 @@ const saveLocalCache = (arrayBuffer) => {
   }
 };
 
-const loadLocalCache = () => {
+export const loadLocalCache = () => {
   try {
     const cached = localStorage.getItem(LOCAL_CACHE_KEY);
     if (!cached) return null;
@@ -51,19 +44,17 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
   }
 
   const uploadPromise = (async () => {
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        await withTimeout(uploadBytes(storageRef, file), 15000);
-        if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-        console.log('[Storage] Upload OK');
-        return;
-      } catch (err) {
-        console.warn(`[Storage] Upload attempt ${attempt} failed:`, err.message);
-        if (attempt < 3) await new Promise((r) => setTimeout(r, 1000 * attempt));
-      }
+    try {
+      await Promise.race([
+        uploadBytes(storageRef, file),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Upload timeout')), 15000)),
+      ]);
+      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
+      console.log('[Storage] Upload OK');
+    } catch (err) {
+      console.warn('[Storage] Upload failed, saved locally:', err.message);
+      if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
     }
-    if (rawArrayBuffer) saveLocalCache(rawArrayBuffer);
-    throw new Error('Upload failed - saved locally only');
   })();
 
   inflightUpload = uploadPromise;
@@ -71,14 +62,39 @@ export const uploadExcel = async (file, rawArrayBuffer) => {
 };
 
 export const downloadExcel = async () => {
+  const localBytes = loadLocalCache();
+  if (localBytes) {
+    console.log('[Storage] Loaded from local cache');
+    fetchFromCloud();
+    return localBytes;
+  }
+
   try {
     const storageRef = ref(storage, EXCEL_PATH);
-    const bytes = await withTimeout(getBytes(storageRef), 8000);
+    const bytes = await Promise.race([
+      getBytes(storageRef),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 6000)),
+    ]);
     saveLocalCache(bytes);
     return bytes;
   } catch (err) {
-    console.warn('[Storage] Download failed, using cache:', err.message);
-    return loadLocalCache();
+    console.warn('[Storage] Cloud download failed:', err.message);
+    return null;
+  }
+};
+
+const fetchFromCloud = async () => {
+  try {
+    const storageRef = ref(storage, EXCEL_PATH);
+    const bytes = await Promise.race([
+      getBytes(storageRef),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000)),
+    ]);
+    saveLocalCache(bytes);
+    console.log('[Storage] Cloud sync OK');
+    window.dispatchEvent(new CustomEvent('storage-synced'));
+  } catch (err) {
+    console.warn('[Storage] Background sync failed:', err.message);
   }
 };
 
