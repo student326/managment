@@ -1,5 +1,16 @@
 import { supabase } from '../supabase/config';
 
+const camelToSnake = (str) =>
+  str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+
+const mapToDbColumns = (obj) => {
+  const mapped = {};
+  for (const [key, value] of Object.entries(obj)) {
+    mapped[camelToSnake(key)] = value;
+  }
+  return mapped;
+};
+
 export const subscribeToStudents = (callback) => {
   let channel = null;
 
@@ -43,7 +54,7 @@ export const subscribeToStudents = (callback) => {
 export const addStudent = async (studentData) => {
   const { data, error } = await supabase
     .from('students')
-    .insert(studentData)
+    .insert(mapToDbColumns(studentData))
     .select()
     .single();
 
@@ -54,7 +65,7 @@ export const addStudent = async (studentData) => {
 export const updateStudent = async (studentId, studentData) => {
   const { error } = await supabase
     .from('students')
-    .update(studentData)
+    .update(mapToDbColumns(studentData))
     .eq('student_id', studentId);
 
   if (error) throw error;

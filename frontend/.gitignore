@@ -8,3 +8,5 @@ dist/
 Thumbs.db
 sample_students.xlsx
 .firebase/
+
+.vercel
