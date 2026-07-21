@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getExpenses, addExpense, updateExpense, deleteExpense } from '../services/financialService';
 import Modal from '../components/Modal';
@@ -9,14 +9,16 @@ const CATEGORIES = ['Salary', 'Rent', 'Utilities', 'Supplies', 'Maintenance', 'M
 
 export default function ExpenseTracking() {
   const { loading } = useExcel();
-  const [expenses, setExpenses] = useState(() => getExpenses());
+  const [expenses, setExpenses] = useState([]);
   const [addModal, setAddModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({ description: '', amount: '', category: 'Salary', method: 'Cash', date: new Date().toISOString().split('T')[0], notes: '' });
 
-  const refresh = () => setExpenses(getExpenses());
+  const refresh = () => getExpenses().then(setExpenses).catch(() => setExpenses([]));
+
+  useEffect(() => { if (!loading) refresh(); }, [loading]);
 
   const filtered = useMemo(() => {
     let data = expenses;
@@ -48,8 +50,7 @@ export default function ExpenseTracking() {
       description: sanitizeInput(form.description.trim()),
       notes: sanitizeInput(form.notes.trim()),
       amount: parseFloat(form.amount),
-    });
-    refresh();
+    }).then(() => refresh());
     setAddModal(false);
     setFormErrors({});
     setForm({ description: '', amount: '', category: 'Salary', method: 'Cash', date: new Date().toISOString().split('T')[0], notes: '' });
@@ -57,15 +58,13 @@ export default function ExpenseTracking() {
 
   const handleEdit = () => {
     if (!editModal || !editModal.description || !editModal.amount) return;
-    updateExpense(editModal.id, { ...editModal, amount: parseFloat(editModal.amount) });
-    refresh();
+    updateExpense(editModal.id, { ...editModal, amount: parseFloat(editModal.amount) }).then(() => refresh());
     setEditModal(null);
   };
 
   const handleDelete = (id) => {
     if (!window.confirm('Delete this expense?')) return;
-    deleteExpense(id);
-    refresh();
+    deleteExpense(id).then(() => refresh());
   };
 
   const categoryTotals = useMemo(() => {

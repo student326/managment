@@ -1,5 +1,10 @@
 import { supabase } from '../supabase/config';
 
+const camelToSnake = (str) => str.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+const snakeToCamel = (str) => str.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+const toDb = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [camelToSnake(k), v]));
+const fromDb = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [snakeToCamel(k), v]));
+
 export const getTransactions = async () => {
   const { data, error } = await supabase
     .from('transactions')
@@ -7,18 +12,18 @@ export const getTransactions = async () => {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data;
+  return (data ?? []).map(fromDb);
 };
 
 export const addTransaction = async (tx) => {
   const { data, error } = await supabase
     .from('transactions')
-    .insert(tx)
+    .insert(toDb(tx))
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+  return fromDb(data);
 };
 
 export const deleteTransaction = async (id) => {
@@ -40,7 +45,7 @@ export const subscribeToTransactions = (callback) => {
       .order('created_at', { ascending: false });
 
     if (error) { callback([], error); return; }
-    callback(data ?? [], null);
+    callback((data ?? []).map(fromDb), null);
   })();
 
   channel = supabase
@@ -53,7 +58,7 @@ export const subscribeToTransactions = (callback) => {
           .from('transactions')
           .select('*')
           .order('created_at', { ascending: false });
-        callback(data ?? [], null);
+        callback((data ?? []).map(fromDb), null);
       }
     )
     .subscribe();

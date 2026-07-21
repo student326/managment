@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
+import * as XLSX from 'xlsx';
 import { useExcel } from '../hooks/useExcel';
-import { exportWorkbook } from '../services/excelService';
-import { exportStudentsPDF, exportFeeReportPDF } from '../services/pdfService';
+import { exportStudentsPDF } from '../services/pdfService';
 import StatusBadge from '../components/StatusBadge';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function Reports() {
-  const { students, loading, wb } = useExcel();
+  const { students, loading } = useExcel();
   const [reportType, setReportType] = useState('fee-summary');
 
   const stats = useMemo(() => {
@@ -26,7 +26,16 @@ export default function Reports() {
   }, [students]);
 
   const handleExportReport = () => {
-    if (wb) exportWorkbook(wb);
+    if (students.length === 0) return;
+    const rows = students.map((s) => ({
+      ID: s.studentId, Name: s.studentName, 'Father Name': s.fatherName, Phone: s.phone, Email: s.email,
+      Course: s.course, Batch: s.batch, 'Admission Date': s.admissionDate, 'Total Fee': s.totalFee,
+      Paid: s.paid, Pending: s.pending, Status: s.status, 'Payment Method': s.paymentMethod,
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Students');
+    XLSX.writeFile(wb, 'students_fee_report.xlsx');
   };
 
   if (loading) {

@@ -1,5 +1,10 @@
 import { supabase } from '../supabase/config';
 
+const camelToSnake = (str) => str.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+const snakeToCamel = (str) => str.replace(/_([a-z])/g, (_, l) => l.toUpperCase());
+const toDb = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [camelToSnake(k), v]));
+const fromDb = (obj) => Object.fromEntries(Object.entries(obj).map(([k, v]) => [snakeToCamel(k), v]));
+
 export const getInstallments = async () => {
   const { data, error } = await supabase
     .from('installments')
@@ -7,24 +12,24 @@ export const getInstallments = async () => {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data;
+  return (data ?? []).map(fromDb);
 };
 
 export const addInstallment = async (plan) => {
   const { data, error } = await supabase
     .from('installments')
-    .insert(plan)
+    .insert(toDb(plan))
     .select()
     .single();
 
   if (error) throw error;
-  return data;
+  return fromDb(data);
 };
 
 export const updateInstallment = async (id, data) => {
   const { error } = await supabase
     .from('installments')
-    .update(data)
+    .update(toDb(data))
     .eq('id', id);
 
   if (error) throw error;
@@ -49,7 +54,7 @@ export const subscribeToInstallments = (callback) => {
       .order('created_at', { ascending: false });
 
     if (error) { callback([], error); return; }
-    callback(data ?? [], null);
+    callback((data ?? []).map(fromDb), null);
   })();
 
   channel = supabase
@@ -62,7 +67,7 @@ export const subscribeToInstallments = (callback) => {
           .from('installments')
           .select('*')
           .order('created_at', { ascending: false });
-        callback(data ?? [], null);
+        callback((data ?? []).map(fromDb), null);
       }
     )
     .subscribe();

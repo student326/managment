@@ -81,7 +81,7 @@ export default function EditStudent() {
     setSaving(true);
     setSaveError('');
     try {
-      const docId = student.id || studentId;
+      const docId = student.studentId || studentId;
       await updateStudent(docId, {
         studentName: sanitizeInput(form.studentName.trim()),
         fatherName: sanitizeInput(form.fatherName.trim()),

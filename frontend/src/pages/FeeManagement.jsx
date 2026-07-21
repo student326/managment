@@ -36,7 +36,7 @@ export default function FeeManagement() {
       const pending = Math.max(0, total - newPaid);
       const status = pending <= 0 && newPaid > 0 ? 'Paid' : newPaid > 0 ? 'Partial' : 'Unpaid';
 
-      const docId = student.id || studentId;
+      const docId = student.studentId || studentId;
       await updateStudent(docId, {
         paid: newPaid,
         pending,

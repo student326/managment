@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getFinancialSummary } from '../services/financialService';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -6,8 +6,13 @@ import LoadingSpinner from '../components/LoadingSpinner';
 export default function FinancialDashboard() {
   const { students, loading } = useExcel();
   const [period, setPeriod] = useState('all');
+  const [summary, setSummary] = useState(null);
 
-  const summary = useMemo(() => getFinancialSummary(students), [students]);
+  useEffect(() => {
+    if (!loading && students.length >= 0) {
+      getFinancialSummary(students).then(setSummary);
+    }
+  }, [students, loading]);
 
   const monthlyData = useMemo(() => {
     const months = {};
@@ -24,7 +29,7 @@ export default function FinancialDashboard() {
 
   const maxMonthly = Math.max(...monthlyData.map(([, d]) => d.collected), 1);
 
-  if (loading) return <div className="flex items-center justify-center py-20"><LoadingSpinner size="lg" text="Loading financial data..." /></div>;
+  if (loading || !summary) return <div className="flex items-center justify-center py-20"><LoadingSpinner size="lg" text="Loading financial data..." /></div>;
 
   return (
       <div className="space-y-4 sm:space-y-6 animate-fade-in">

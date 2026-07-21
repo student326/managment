@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getInstallments, addInstallment, updateInstallment, deleteInstallment } from '../services/financialService';
 import Modal from '../components/Modal';
@@ -7,7 +7,7 @@ import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function InstallmentPlans() {
   const { students, loading } = useExcel();
-  const [plans, setPlans] = useState(() => getInstallments());
+  const [plans, setPlans] = useState([]);
   const [addModal, setAddModal] = useState(false);
   const [editModal, setEditModal] = useState(null);
   const [search, setSearch] = useState('');
@@ -15,7 +15,9 @@ export default function InstallmentPlans() {
     studentId: '', totalAmount: '', paidAmount: '0', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0], notes: ''
   });
 
-  const refresh = () => setPlans(getInstallments());
+  const refresh = () => getInstallments().then(setPlans).catch(() => setPlans([]));
+
+  useEffect(() => { if (!loading) refresh(); }, [loading]);
 
   const filtered = useMemo(() => {
     let data = plans;
@@ -53,8 +55,7 @@ export default function InstallmentPlans() {
       installmentCount: count,
       perInstallment,
       status: 'Active',
-    });
-    refresh();
+    }).then(() => refresh());
     setAddModal(false);
     setFormErrors({});
     setForm({ studentId: '', totalAmount: '', paidAmount: '0', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0], notes: '' });
@@ -67,15 +68,13 @@ export default function InstallmentPlans() {
       totalAmount: parseFloat(editModal.totalAmount) || 0,
       paidAmount: parseFloat(editModal.paidAmount) || 0,
       perInstallment: (parseFloat(editModal.totalAmount) || 0) / (parseInt(editModal.installmentCount) || 1),
-    });
-    refresh();
+    }).then(() => refresh());
     setEditModal(null);
   };
 
   const handleDelete = (id) => {
     if (!window.confirm('Delete this installment plan?')) return;
-    deleteInstallment(id);
-    refresh();
+    deleteInstallment(id).then(() => refresh());
   };
 
   if (loading) return <div className="flex items-center justify-center py-20"><LoadingSpinner size="lg" text="Loading plans..." /></div>;

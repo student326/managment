@@ -11,6 +11,17 @@ const mapToDbColumns = (obj) => {
   return mapped;
 };
 
+const snakeToCamel = (str) =>
+  str.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+
+const mapFromDbColumns = (obj) => {
+  const mapped = {};
+  for (const [key, value] of Object.entries(obj)) {
+    mapped[snakeToCamel(key)] = value;
+  }
+  return mapped;
+};
+
 export const subscribeToStudents = (callback) => {
   let channel = null;
 
@@ -25,7 +36,7 @@ export const subscribeToStudents = (callback) => {
       callback([], error);
       return;
     }
-    callback(data ?? [], null);
+    callback((data ?? []).map(mapFromDbColumns), null);
   })();
 
   channel = supabase
@@ -38,7 +49,7 @@ export const subscribeToStudents = (callback) => {
           .from('students')
           .select('*')
           .order('created_at', { ascending: false });
-        callback(data ?? [], null);
+        callback((data ?? []).map(mapFromDbColumns), null);
       }
     )
     .subscribe();

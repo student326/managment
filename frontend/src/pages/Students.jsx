@@ -43,7 +43,7 @@ export default function Students() {
 
   const handleDelete = async (e, student) => {
     e.stopPropagation();
-    const id = student.id || student.studentId;
+    const id = student.studentId || student.id;
     if (!window.confirm(`Delete student ${student.studentName || id}?`)) return;
     setDeleting(id);
     setActionError('');
@@ -79,11 +79,11 @@ export default function Students() {
           </button>
           <button
             onClick={(e) => handleDelete(e, row)}
-            disabled={deleting === (row.id || row.studentId)}
+            disabled={deleting === (row.studentId || row.id)}
             className="p-1 text-on-surface-variant hover:text-error transition-colors disabled:opacity-50"
             title="Delete"
           >
-            {deleting === (row.id || row.studentId) ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-lg">delete</span>}
+            {deleting === (row.studentId || row.id) ? <LoadingSpinner size="sm" /> : <span className="material-symbols-outlined text-lg">delete</span>}
           </button>
         </>
       ),

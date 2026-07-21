@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getTransactions, addTransaction, deleteTransaction } from '../services/financialService';
 import Modal from '../components/Modal';
@@ -7,12 +7,16 @@ import { validateInput, sanitizeInput } from '../services/securityService';
 
 export default function TransactionLog() {
   const { students, loading } = useExcel();
-  const [txList, setTxList] = useState(() => getTransactions());
+  const [txList, setTxList] = useState([]);
   const [addModal, setAddModal] = useState(false);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
   const [formErrors, setFormErrors] = useState({});
   const [form, setForm] = useState({ studentId: '', type: 'Fee Payment', amount: '', method: 'Cash', description: '', date: new Date().toISOString().split('T')[0] });
+
+  const refresh = () => getTransactions().then(setTxList).catch(() => setTxList([]));
+
+  useEffect(() => { if (!loading) refresh(); }, [loading]);
 
   const filtered = useMemo(() => {
     let data = txList;
@@ -43,8 +47,7 @@ export default function TransactionLog() {
       studentName: sanitizeInput(student?.studentName || 'N/A'),
       description: sanitizeInput(form.description.trim()),
       amount: parseFloat(form.amount),
-    });
-    setTxList(getTransactions());
+    }).then(() => refresh());
     setAddModal(false);
     setFormErrors({});
     setForm({ studentId: '', type: 'Fee Payment', amount: '', method: 'Cash', description: '', date: new Date().toISOString().split('T')[0] });
@@ -52,8 +55,7 @@ export default function TransactionLog() {
 
   const handleDelete = (id) => {
     if (!window.confirm('Delete this transaction?')) return;
-    deleteTransaction(id);
-    setTxList(getTransactions());
+    deleteTransaction(id).then(() => refresh());
   };
 
   const totalAmount = filtered.reduce((s, t) => s + (parseFloat(t.amount) || 0), 0);
