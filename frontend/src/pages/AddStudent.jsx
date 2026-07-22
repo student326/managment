@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useExcel } from '../hooks/useExcel';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { validateInput, sanitizeInput } from '../services/securityService';
+import { subscribeToCourses } from '../services/courseService';
+import { subscribeToBatches } from '../services/batchService';
 
 export default function AddStudent() {
   const { addStudent, loading: dataLoading } = useExcel();
@@ -12,13 +14,15 @@ export default function AddStudent() {
   const [saveError, setSaveError] = useState('');
   const [now, setNow] = useState(new Date());
   const [formErrors, setFormErrors] = useState({});
+  const [courses, setCourses] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [form, setForm] = useState({
     studentName: '',
     fatherName: '',
     phone: '',
     email: '',
-    course: 'Grade 9',
-    batch: '2024-2025',
+    course: '',
+    batch: '',
     totalFee: '',
     paid: '',
     remaining: 0,
@@ -30,6 +34,12 @@ export default function AddStudent() {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const unsubCourses = subscribeToCourses((data) => setCourses(data));
+    const unsubBatches = subscribeToBatches((data) => setBatches(data));
+    return () => { if (unsubCourses) unsubCourses(); if (unsubBatches) unsubBatches(); };
   }, []);
 
   useEffect(() => {
@@ -203,24 +213,25 @@ export default function AddStudent() {
                   onChange={handleChange}
                   className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
                 >
-                  <option>Grade 9</option>
-                  <option>Grade 10</option>
-                  <option>FSc Pre-Medical Part 1</option>
-                  <option>FSc Pre-Medical Part 2</option>
-                  <option>ICS Part 1</option>
-                  <option>ICS Part 2</option>
+                  <option value="">Select Course</option>
+                  {courses.filter((c) => c.status === 'Active').map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-label-md text-on-surface-variant mb-1.5">Batch</label>
-                <input
+                <select
                   name="batch"
                   value={form.batch}
                   onChange={handleChange}
-                  placeholder="e.g., 2024-2025"
-                  maxLength={20}
                   className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors"
-                />
+                >
+                  <option value="">Select Batch</option>
+                  {batches.filter((b) => b.status === 'Active').map((b) => (
+                    <option key={b.id} value={b.name}>{b.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>

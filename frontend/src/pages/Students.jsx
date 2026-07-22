@@ -28,6 +28,7 @@ export default function Students() {
           (s.studentName || '').toLowerCase().includes(q) ||
           (s.studentId || '').toLowerCase().includes(q) ||
           (s.course || '').toLowerCase().includes(q) ||
+          (s.batch || '').toLowerCase().includes(q) ||
           (s.phone || '').toLowerCase().includes(q) ||
           (s.email || '').toLowerCase().includes(q)
       );
@@ -61,6 +62,7 @@ export default function Students() {
     { key: 'name', label: 'Student' },
     { key: 'studentId', label: 'ID' },
     { key: 'course', label: 'Course' },
+    { key: 'batch', label: 'Batch' },
     { key: 'totalFee', label: 'Total Fee', type: 'currency' },
     { key: 'paid', label: 'Paid', type: 'currency' },
     { key: 'pending', label: 'Pending', type: 'currency' },

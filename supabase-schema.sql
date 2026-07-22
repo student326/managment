@@ -98,7 +98,38 @@ CREATE INDEX idx_installments_student_id ON installments(student_id);
 CREATE INDEX idx_installments_status ON installments(status);
 
 -- ============================================================
--- 5. AUTO-UPDATE updated_at TRIGGER
+-- 5. COURSES
+-- ============================================================
+CREATE TABLE courses (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name          TEXT UNIQUE NOT NULL,
+  description   TEXT DEFAULT '',
+  fee           NUMERIC(12,2) NOT NULL DEFAULT 0,
+  status        TEXT NOT NULL DEFAULT 'Active',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_courses_name ON courses(name);
+
+-- ============================================================
+-- 6. BATCHES
+-- ============================================================
+CREATE TABLE batches (
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name          TEXT UNIQUE NOT NULL,
+  course_name   TEXT DEFAULT '',
+  start_date    DATE,
+  end_date      DATE,
+  status        TEXT NOT NULL DEFAULT 'Active',
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_batches_name ON batches(name);
+
+-- ============================================================
+-- 7. AUTO-UPDATE updated_at TRIGGER
 -- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
@@ -120,23 +151,37 @@ CREATE TRIGGER trg_installments_updated_at
   BEFORE UPDATE ON installments
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+CREATE TRIGGER trg_courses_updated_at
+  BEFORE UPDATE ON courses
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER trg_batches_updated_at
+  BEFORE UPDATE ON batches
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
 -- ============================================================
--- 6. ROW LEVEL SECURITY (auth users only)
+-- 8. ROW LEVEL SECURITY (auth users only)
 -- ============================================================
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE installments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE batches ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Authenticated full access" ON students FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated full access" ON transactions FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated full access" ON expenses FOR ALL USING (auth.role() = 'authenticated');
 CREATE POLICY "Authenticated full access" ON installments FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated full access" ON courses FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Authenticated full access" ON batches FOR ALL USING (auth.role() = 'authenticated');
 
 -- ============================================================
--- 7. ENABLE REALTIME
+-- 9. ENABLE REALTIME
 -- ============================================================
 ALTER PUBLICATION supabase_realtime ADD TABLE students;
 ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
 ALTER PUBLICATION supabase_realtime ADD TABLE expenses;
 ALTER PUBLICATION supabase_realtime ADD TABLE installments;
+ALTER PUBLICATION supabase_realtime ADD TABLE courses;
+ALTER PUBLICATION supabase_realtime ADD TABLE batches;

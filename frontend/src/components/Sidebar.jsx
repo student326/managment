@@ -5,6 +5,8 @@ const navItems = [
   { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
   { path: '/students', icon: 'group', label: 'Students' },
   { path: '/add-student', icon: 'person_add', label: 'Add Student' },
+  { path: '/courses', icon: 'school', label: 'Courses' },
+  { path: '/batches', icon: 'calendar_month', label: 'Batches' },
   { path: '/data-sync', icon: 'sync', label: 'Data Sync' },
   { path: '/reports', icon: 'assessment', label: 'Reports' },
 ];

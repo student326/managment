@@ -18,6 +18,8 @@ import TransactionLog from './pages/TransactionLog';
 import ExpenseTracking from './pages/ExpenseTracking';
 import InstallmentPlans from './pages/InstallmentPlans';
 import FeeReceipts from './pages/FeeReceipts';
+import Courses from './pages/Courses';
+import Batches from './pages/Batches';
 
 export default function App() {
   return (
@@ -50,6 +52,8 @@ export default function App() {
             <Route path="expenses" element={<ExpenseTracking />} />
             <Route path="installments" element={<InstallmentPlans />} />
             <Route path="receipts" element={<FeeReceipts />} />
+            <Route path="courses" element={<Courses />} />
+            <Route path="batches" element={<Batches />} />
           </Route>
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>

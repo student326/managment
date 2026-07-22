@@ -16,6 +16,8 @@ const pageTitles = {
   '/expenses': 'Expense Tracking',
   '/installments': 'Installment Plans',
   '/receipts': 'Fee Receipts',
+  '/courses': 'Courses',
+  '/batches': 'Batches',
 };
 
 export default function Layout() {
