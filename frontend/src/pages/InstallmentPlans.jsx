@@ -5,6 +5,27 @@ import Modal from '../components/Modal';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { validateInput, sanitizeInput } from '../services/securityService';
 
+function computeNextDueDate(startDate, frequency) {
+  if (!startDate) return null;
+  const d = new Date(startDate);
+  switch (frequency) {
+    case 'Weekly': d.setDate(d.getDate() + 7); break;
+    case 'Bi-Weekly': d.setDate(d.getDate() + 14); break;
+    case 'Monthly': d.setMonth(d.getMonth() + 1); break;
+    case 'Quarterly': d.setMonth(d.getMonth() + 3); break;
+    default: d.setMonth(d.getMonth() + 1);
+  }
+  return d.toISOString().split('T')[0];
+}
+
+function deriveInstallmentCount(plan) {
+  let count = 0;
+  if ((plan.installment1 || 0) > 0) count++;
+  if ((plan.installment2 || 0) > 0) count++;
+  if ((plan.installment3 || 0) > 0) count++;
+  return count || 1;
+}
+
 export default function InstallmentPlans() {
   const { students, loading } = useExcel();
   const [plans, setPlans] = useState([]);
@@ -12,7 +33,7 @@ export default function InstallmentPlans() {
   const [editModal, setEditModal] = useState(null);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({
-    studentId: '', totalAmount: '', paidAmount: '0', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0], notes: ''
+    studentId: '', totalAmount: '', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0]
   });
 
   const refresh = () => getInstallments().then(setPlans).catch(() => setPlans([]));
@@ -36,38 +57,44 @@ export default function InstallmentPlans() {
     if (!studentResult.valid) errors.studentId = 'Please select a student';
     const totalResult = validateInput(String(form.totalAmount), 'number', { required: true, min: 1, max: 100000000 });
     if (!totalResult.valid) errors.totalAmount = totalResult.error;
-    if (form.notes) {
-      const notesResult = validateInput(form.notes, 'text', { maxLength: 500 });
-      if (!notesResult.valid) errors.notes = notesResult.error;
-    }
     if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     const student = students.find((s) => s.studentId === form.studentId);
     const total = parseFloat(form.totalAmount) || 0;
-    const count = parseInt(form.installmentCount) || 1;
+    const count = Math.min(parseInt(form.installmentCount) || 1, 3);
     const perInstallment = total / count;
+
+    const dueDate1 = form.startDate || null;
+    const dueDate2 = computeNextDueDate(form.startDate, form.frequency);
+    const dueDate3 = computeNextDueDate(dueDate2, form.frequency);
+
     addInstallment({
-      ...form,
       studentId: sanitizeInput(form.studentId),
       studentName: sanitizeInput(student ? student.studentName : 'N/A'),
-      notes: sanitizeInput(form.notes.trim()),
       totalAmount: total,
-      paidAmount: parseFloat(form.paidAmount) || 0,
-      installmentCount: count,
-      perInstallment,
-      status: 'Active',
+      installment1: perInstallment,
+      installment2: count >= 2 ? perInstallment : 0,
+      installment3: count >= 3 ? perInstallment : 0,
+      dueDate1: dueDate1,
+      dueDate2: count >= 2 ? dueDate2 : null,
+      dueDate3: count >= 3 ? dueDate3 : null,
+      status: 'Pending',
     }).then(() => refresh());
     setAddModal(false);
     setFormErrors({});
-    setForm({ studentId: '', totalAmount: '', paidAmount: '0', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0], notes: '' });
+    setForm({ studentId: '', totalAmount: '', installmentCount: '3', frequency: 'Monthly', startDate: new Date().toISOString().split('T')[0] });
   };
 
   const handleEdit = () => {
     if (!editModal) return;
+    const total = parseFloat(editModal.totalAmount) || 0;
+    const count = deriveInstallmentCount(editModal);
+    const perInstallment = total / count;
     updateInstallment(editModal.id, {
-      ...editModal,
-      totalAmount: parseFloat(editModal.totalAmount) || 0,
-      paidAmount: parseFloat(editModal.paidAmount) || 0,
-      perInstallment: (parseFloat(editModal.totalAmount) || 0) / (parseInt(editModal.installmentCount) || 1),
+      totalAmount: total,
+      status: editModal.status,
+      installment1: perInstallment,
+      installment2: count >= 2 ? perInstallment : 0,
+      installment3: count >= 3 ? perInstallment : 0,
     }).then(() => refresh());
     setEditModal(null);
   };
@@ -99,11 +126,11 @@ export default function InstallmentPlans() {
         </div>
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl px-6 py-4">
           <p className="text-label-md text-on-surface-variant">Active Plans</p>
-          <p className="text-headline-sm text-emerald-600 mt-1">{plans.filter((p) => p.status === 'Active').length}</p>
+          <p className="text-headline-sm text-emerald-600 mt-1">{plans.filter((p) => p.status === 'Pending').length}</p>
         </div>
         <div className="bg-surface-container-lowest border border-outline-variant rounded-xl px-6 py-4">
           <p className="text-label-md text-on-surface-variant">Completed Plans</p>
-          <p className="text-headline-sm text-blue-600 mt-1">{plans.filter((p) => p.status === 'Completed').length}</p>
+          <p className="text-headline-sm text-blue-600 mt-1">{plans.filter((p) => p.status === 'Paid').length}</p>
         </div>
       </div>
 
@@ -125,7 +152,10 @@ export default function InstallmentPlans() {
         ) : (
           <div className="divide-y divide-outline-variant">
             {filtered.map((plan) => {
-              const progress = plan.totalAmount > 0 ? ((plan.paidAmount / plan.totalAmount) * 100).toFixed(1) : 0;
+              const installmentCount = deriveInstallmentCount(plan);
+              const perInstallment = (plan.installment1 || 0);
+              const paidAmount = plan.status === 'Paid' ? (plan.totalAmount || 0) : 0;
+              const progress = plan.totalAmount > 0 ? ((paidAmount / plan.totalAmount) * 100).toFixed(1) : 0;
               return (
                 <div key={plan.id} className="px-6 py-4 hover:bg-surface-container-low transition-colors">
                   <div className="flex items-center justify-between mb-3">
@@ -135,11 +165,11 @@ export default function InstallmentPlans() {
                       </div>
                       <div>
                         <p className="text-body-md font-medium text-on-surface">{plan.studentName || plan.studentId}</p>
-                        <p className="text-label-md text-on-surface-variant">{plan.studentId} | {plan.frequency} x {plan.installmentCount}</p>
+                        <p className="text-label-md text-on-surface-variant">{plan.studentId} | {installmentCount} installments</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className={`px-2.5 py-0.5 rounded-full text-label-md ${plan.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{plan.status}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-label-md ${plan.status === 'Pending' ? 'bg-emerald-50 text-emerald-700' : plan.status === 'Paid' ? 'bg-blue-50 text-blue-700' : 'bg-red-50 text-red-700'}`}>{plan.status}</span>
                       <button onClick={() => setEditModal({ ...plan })} className="p-1 text-on-surface-variant hover:text-primary transition-colors" title="Edit">
                         <span className="material-symbols-outlined text-lg">edit</span>
                       </button>
@@ -150,8 +180,8 @@ export default function InstallmentPlans() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-label-md text-on-surface-variant">
                     <span>Total: PKR {(plan.totalAmount || 0).toLocaleString()}</span>
-                    <span>Paid: PKR {(plan.paidAmount || 0).toLocaleString()}</span>
-                    <span>Per Installment: PKR {(plan.perInstallment || 0).toLocaleString()}</span>
+                    <span>Paid: PKR {paidAmount.toLocaleString()}</span>
+                    <span>Per Installment: PKR {perInstallment.toLocaleString()}</span>
                   </div>
                   <div className="mt-2 w-full h-2 bg-surface-container rounded-full overflow-hidden">
                     <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${Math.min(100, progress)}%` }} />
@@ -179,20 +209,14 @@ export default function InstallmentPlans() {
             </select>
             {formErrors.studentId && <p className="text-error text-label-md mt-1">{formErrors.studentId}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-label-md text-on-surface-variant mb-1.5">Total Amount (PKR)</label>
-              <input type="number" value={form.totalAmount} onChange={(e) => setForm((f) => ({ ...f, totalAmount: e.target.value }))} placeholder="0" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-            </div>
-            <div>
-              <label className="block text-label-md text-on-surface-variant mb-1.5">Already Paid (PKR)</label>
-              <input type="number" value={form.paidAmount} onChange={(e) => setForm((f) => ({ ...f, paidAmount: e.target.value }))} placeholder="0" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-            </div>
+          <div>
+            <label className="block text-label-md text-on-surface-variant mb-1.5">Total Amount (PKR)</label>
+            <input type="number" value={form.totalAmount} onChange={(e) => setForm((f) => ({ ...f, totalAmount: e.target.value }))} placeholder="0" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-label-md text-on-surface-variant mb-1.5">Number of Installments</label>
-              <input type="number" value={form.installmentCount} onChange={(e) => setForm((f) => ({ ...f, installmentCount: e.target.value }))} min="1" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
+              <label className="block text-label-md text-on-surface-variant mb-1.5">Number of Installments (max 3)</label>
+              <input type="number" value={form.installmentCount} onChange={(e) => setForm((f) => ({ ...f, installmentCount: e.target.value }))} min="1" max="3" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
             </div>
             <div>
               <label className="block text-label-md text-on-surface-variant mb-1.5">Frequency</label>
@@ -204,10 +228,6 @@ export default function InstallmentPlans() {
           <div>
             <label className="block text-label-md text-on-surface-variant mb-1.5">Start Date</label>
             <input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-          </div>
-          <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
           </div>
           <div className="flex items-center justify-end gap-3">
             <button onClick={() => setAddModal(false)} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>
@@ -223,27 +243,15 @@ export default function InstallmentPlans() {
               <label className="block text-label-md text-on-surface-variant mb-1.5">Student</label>
               <input value={`${editModal.studentId} - ${editModal.studentName || ''}`} readOnly className="w-full px-4 py-2.5 bg-surface-container border border-outline-variant rounded-lg text-body-md cursor-not-allowed" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-label-md text-on-surface-variant mb-1.5">Total Amount (PKR)</label>
-                <input type="number" value={editModal.totalAmount} onChange={(e) => setEditModal((p) => ({ ...p, totalAmount: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-              </div>
-              <div>
-                <label className="block text-label-md text-on-surface-variant mb-1.5">Paid Amount (PKR)</label>
-                <input type="number" value={editModal.paidAmount} onChange={(e) => setEditModal((p) => ({ ...p, paidAmount: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-              </div>
+            <div>
+              <label className="block text-label-md text-on-surface-variant mb-1.5">Total Amount (PKR)</label>
+              <input type="number" value={editModal.totalAmount} onChange={(e) => setEditModal((p) => ({ ...p, totalAmount: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-label-md text-on-surface-variant mb-1.5">Status</label>
-                <select value={editModal.status} onChange={(e) => setEditModal((p) => ({ ...p, status: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors">
-                  <option>Active</option><option>Completed</option><option>Cancelled</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-label-md text-on-surface-variant mb-1.5">Installments</label>
-                <input type="number" value={editModal.installmentCount} onChange={(e) => setEditModal((p) => ({ ...p, installmentCount: e.target.value }))} min="1" className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-              </div>
+            <div>
+              <label className="block text-label-md text-on-surface-variant mb-1.5">Status</label>
+              <select value={editModal.status} onChange={(e) => setEditModal((p) => ({ ...p, status: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors">
+                <option>Pending</option><option>Paid</option><option>Overdue</option>
+              </select>
             </div>
             <div className="flex items-center justify-end gap-3">
               <button onClick={() => setEditModal(null)} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>

@@ -14,7 +14,7 @@ export default function ExpenseTracking() {
   const [editModal, setEditModal] = useState(null);
   const [filter, setFilter] = useState('All');
   const [search, setSearch] = useState('');
-  const [form, setForm] = useState({ description: '', amount: '', category: 'Salary', method: 'Cash', date: new Date().toISOString().split('T')[0], notes: '' });
+  const [form, setForm] = useState({ description: '', amount: '', category: 'Salary', date: new Date().toISOString().split('T')[0] });
 
   const refresh = () => getExpenses().then(setExpenses).catch(() => setExpenses([]));
 
@@ -40,20 +40,16 @@ export default function ExpenseTracking() {
     if (!descResult.valid) errors.description = descResult.error;
     const amountResult = validateInput(String(form.amount), 'number', { required: true, min: 1, max: 100000000 });
     if (!amountResult.valid) errors.amount = amountResult.error;
-    if (form.notes) {
-      const notesResult = validateInput(form.notes, 'text', { maxLength: 500 });
-      if (!notesResult.valid) errors.notes = notesResult.error;
-    }
     if (Object.keys(errors).length > 0) { setFormErrors(errors); return; }
     addExpense({
-      ...form,
       description: sanitizeInput(form.description.trim()),
-      notes: sanitizeInput(form.notes.trim()),
       amount: parseFloat(form.amount),
+      category: form.category,
+      date: form.date,
     }).then(() => refresh());
     setAddModal(false);
     setFormErrors({});
-    setForm({ description: '', amount: '', category: 'Salary', method: 'Cash', date: new Date().toISOString().split('T')[0], notes: '' });
+    setForm({ description: '', amount: '', category: 'Salary', date: new Date().toISOString().split('T')[0] });
   };
 
   const handleEdit = () => {
@@ -165,8 +161,6 @@ export default function ExpenseTracking() {
                     <th className="px-4 py-3 text-left text-table-header text-on-surface-variant uppercase tracking-wider">Date</th>
                     <th className="px-4 py-3 text-left text-table-header text-on-surface-variant uppercase tracking-wider">Description</th>
                     <th className="px-4 py-3 text-left text-table-header text-on-surface-variant uppercase tracking-wider">Category</th>
-                    <th className="px-4 py-3 text-left text-table-header text-on-surface-variant uppercase tracking-wider hidden lg:table-cell">Method</th>
-                    <th className="px-4 py-3 text-left text-table-header text-on-surface-variant uppercase tracking-wider hidden xl:table-cell">Notes</th>
                     <th className="px-4 py-3 text-right text-table-header text-on-surface-variant uppercase tracking-wider">Amount</th>
                     <th className="px-4 py-3 text-center text-table-header text-on-surface-variant uppercase tracking-wider">Actions</th>
                   </tr>
@@ -179,8 +173,6 @@ export default function ExpenseTracking() {
                       <td className="px-4 py-3">
                         <span className="px-2.5 py-0.5 rounded-full text-label-md bg-red-50 text-red-700">{exp.category}</span>
                       </td>
-                      <td className="px-4 py-3 text-body-md text-on-surface hidden lg:table-cell">{exp.method || '-'}</td>
-                      <td className="px-4 py-3 text-body-md text-on-surface-variant max-w-[200px] truncate hidden xl:table-cell">{exp.notes || '-'}</td>
                       <td className="px-4 py-3 text-body-md font-mono text-right font-semibold text-red-600">PKR {(parseFloat(exp.amount) || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -205,7 +197,7 @@ export default function ExpenseTracking() {
                   <div className="flex items-start justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="text-body-md font-medium text-on-surface">{exp.description}</p>
-                      <p className="text-label-md text-on-surface-variant">{exp.date || '-'} · {exp.method || '-'}</p>
+                      <p className="text-label-md text-on-surface-variant">{exp.date || '-'}</p>
                     </div>
                     <p className="text-body-md font-mono font-semibold text-red-600 ml-2 flex-shrink-0">PKR {(parseFloat(exp.amount) || 0).toLocaleString()}</p>
                   </div>
@@ -251,21 +243,9 @@ export default function ExpenseTracking() {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-label-md text-on-surface-variant mb-1.5">Payment Method</label>
-              <select value={form.method} onChange={(e) => setForm((f) => ({ ...f, method: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors">
-                <option>Cash</option><option>Bank Transfer</option><option>Cheque</option><option>Online</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-label-md text-on-surface-variant mb-1.5">Date</label>
-              <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
-            </div>
-          </div>
           <div>
-            <label className="block text-label-md text-on-surface-variant mb-1.5">Notes</label>
-            <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Additional notes..." rows={2} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors resize-none" />
+            <label className="block text-label-md text-on-surface-variant mb-1.5">Date</label>
+            <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} className="w-full px-4 py-2.5 bg-surface-bright border border-outline-variant rounded-lg text-body-md focus:outline-none focus:border-primary focus:shadow-[0_0_0_1px_#00236f] transition-colors" />
           </div>
           <div className="flex items-center justify-end gap-3">
             <button onClick={() => setAddModal(false)} className="px-4 py-2 border border-outline-variant rounded-lg text-label-md hover:bg-surface-container-low transition-colors">Cancel</button>

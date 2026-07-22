@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getFinancialSummary } from '../services/financialService';
 import LoadingSpinner from '../components/LoadingSpinner';

@@ -1,14 +1,22 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useExcel } from '../hooks/useExcel';
 import { getTransactions, generateReceiptNumber } from '../services/financialService';
 import LoadingSpinner from '../components/LoadingSpinner';
 
 export default function FeeReceipts() {
   const { students, loading } = useExcel();
-  const [txList] = useState(() => getTransactions().filter((t) => t.type === 'Fee Payment' || t.type === 'Installment'));
+  const [txList, setTxList] = useState([]);
   const [search, setSearch] = useState('');
   const [selectedTx, setSelectedTx] = useState(null);
   const receiptRef = useRef();
+
+  useEffect(() => {
+    if (!loading) {
+      getTransactions()
+        .then((txs) => setTxList(txs.filter((t) => t.type === 'Fee Payment' || t.type === 'Installment')))
+        .catch(() => setTxList([]));
+    }
+  }, [loading]);
 
   const filtered = useMemo(() => {
     if (!search) return txList;
